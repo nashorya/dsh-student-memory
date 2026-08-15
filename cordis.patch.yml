@@ -1,0 +1,6 @@
+- insert:
+    - id: student-memory
+      name: dsh-student-memory
+      config:
+        l1BudgetChars: 2000
+        watermark: STUDENT_MEMORY_WATERMARK

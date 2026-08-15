@@ -1,0 +1,6 @@
+- insert:
+    - id: student-memory
+      name: /Users/juejuezi/dsh-plugin-v1/student-memory/src/index.ts
+      config:
+        l1BudgetChars: 2000
+        watermark: STUDENT_MEMORY_WATERMARK
