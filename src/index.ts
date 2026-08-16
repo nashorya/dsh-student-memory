@@ -60,7 +60,8 @@ export function defaultMemoryDir(): string {
 export function apply(ctx: StudentMemoryContext, config: StudentMemoryConfig = {}): StudentMemoryRuntime {
   const persistMode = config.persist ?? 'file'
   const storePath = config.storePath ?? join(defaultMemoryDir(), 'lessons.json')
-  const dashboardPath = config.dashboardPath ?? join(defaultMemoryDir(), 'dashboard.html')
+  const dashboardPath = config.dashboardPath
+    ?? (persistMode === 'file' ? join(defaultMemoryDir(), 'dashboard.html') : undefined)
   const persist = persistMode === 'file' ? new FilePersist(storePath) : new MemoryPersist()
   const runtime = new StudentMemoryRuntime(persist, { ...config, storePath, dashboardPath })
   void runtime.boot()
