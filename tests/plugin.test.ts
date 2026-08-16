@@ -15,6 +15,7 @@ function fakeCtx() {
     contexts,
     waterfalls,
     ctx: {
+      tools: { register() { return () => {} } },
       systemPrompt: {
         section(section: { name: string; order: number; text: string | (() => string) }) {
           const text = typeof section.text === 'function' ? section.text : () => section.text as string

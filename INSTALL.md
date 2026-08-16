@@ -12,12 +12,19 @@
 
 ## 源码挂载（开发 / dogfood）
 
-```sh
-# 1. 本机已有钉死的 dsh
-cd /Users/juejuezi/dsh-plugin-v1/deepseek-harness
-pnpm install   # 只需做一次
+本机已做过一遍：
 
-# 2. 在一个带测试的真实仓库里打开 Web
+```sh
+cd /Users/juejuezi/dsh-plugin-v1/deepseek-harness
+pnpm install
+pnpm run build          # lib + web frontend；缺 lib/ 或 dist/ 会起不来
+pnpm dsh plugin --profile web add /Users/juejuezi/dsh-plugin-v1/student-memory
+pnpm dsh web            # 已验证 http://127.0.0.1:3080 200，插件在 compose 树里
+```
+
+`--patch` 开发热路径仍然可用：
+
+```sh
 pnpm dsh web --patch /Users/juejuezi/dsh-plugin-v1/student-memory/dev.patch.yml
 ```
 

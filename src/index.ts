@@ -31,7 +31,7 @@ export type { AssembledPrompt, L1Live, L2Pinned, StudentMemoryConfig } from './t
 export type { Lesson, LessonDraft, LessonTrust } from './lesson.ts'
 
 export const name = 'student-memory'
-export const inject = ['systemPrompt']
+export const inject = ['systemPrompt', 'tools']
 
 export interface StudentMemoryContext {
   systemPrompt: {
@@ -47,7 +47,7 @@ export interface StudentMemoryContext {
     }): () => void
   }
   on(event: string, listener: (...args: unknown[]) => unknown): () => void
-  tools?: { register(tool: unknown): unknown }
+  tools: { register(tool: unknown): unknown }
 }
 
 export function apply(ctx: StudentMemoryContext, config: StudentMemoryConfig = {}): StudentMemoryRuntime {
@@ -88,7 +88,7 @@ export function apply(ctx: StudentMemoryContext, config: StudentMemoryConfig = {
     runtime.requestHarvest()
   }) as never)
 
-  ctx.tools?.register(writeLessonTool(runtime))
+  ctx.tools.register(writeLessonTool(runtime))
 
   return runtime
 }
