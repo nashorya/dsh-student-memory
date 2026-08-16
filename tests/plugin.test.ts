@@ -29,8 +29,8 @@ function fakeCtx() {
           return () => {}
         },
       },
-      on(_event: 'system-prompt/assemble', listener: (typeof waterfalls)[0]) {
-        waterfalls.push(listener)
+      on(_event: string, listener: (...args: unknown[]) => unknown) {
+        waterfalls.push(listener as (typeof waterfalls)[0])
         return () => {}
       },
     },
@@ -40,9 +40,9 @@ function fakeCtx() {
 describe('apply', () => {
   it('registers L2 section and L1 context providers that read the live store', () => {
     const { ctx, sections, contexts } = fakeCtx()
-    const store = apply(ctx)
-    store.pin({ workingMemory: 'Goal: dogfood' })
-    store.setLive({ task: 'spike' })
+    const runtime = apply(ctx)
+    runtime.pinned = { workingMemory: 'Goal: dogfood' }
+    runtime.liveQuery = 'spike'
     expect(sections.map((s) => s.name)).toEqual([L2_SECTION])
     expect(contexts.map((c) => c.name)).toEqual([L1_CONTEXT])
     expect(sections[0]?.text()).toContain('Goal: dogfood')

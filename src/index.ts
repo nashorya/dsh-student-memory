@@ -1,10 +1,9 @@
 import { applyL1Budget } from './budget.ts'
-import { renderL1 } from './l1.ts'
-import { renderL2 } from './l2.ts'
-import { MemoryStore } from './store.ts'
+import { FilePersist, MemoryPersist } from './persist.ts'
+import { observationFromExec, writeLessonTool } from './tool.ts'
+import { StudentMemoryRuntime } from './runtime.ts'
 import {
   DEFAULT_L1_BUDGET,
-  DEFAULT_WATERMARK,
   L1_CONTEXT,
   L1_ORDER,
   L2_ORDER,
@@ -15,7 +14,11 @@ import type { StudentMemoryConfig } from './types.ts'
 export { applyL1Budget } from './budget.ts'
 export { renderL1 } from './l1.ts'
 export { renderL2 } from './l2.ts'
-export { MemoryStore } from './store.ts'
+export { StudentMemoryRuntime, ARC_REMINDER, HARVEST_PROMPT } from './runtime.ts'
+export { writeLessonTool } from './tool.ts'
+export { renderReceipt, renderSidebar } from './receipt.ts'
+export { verdictOf } from './verdict.ts'
+export { recallLessons } from './recall.ts'
 export {
   DEFAULT_L1_BUDGET,
   DEFAULT_WATERMARK,
@@ -25,11 +28,11 @@ export {
   L2_SECTION,
 } from './types.ts'
 export type { AssembledPrompt, L1Live, L2Pinned, StudentMemoryConfig } from './types.ts'
+export type { Lesson, LessonDraft, LessonTrust } from './lesson.ts'
 
 export const name = 'student-memory'
 export const inject = ['systemPrompt']
 
-/** Minimal ctx surface we touch. Avoids a hard dep on unpublished dsh types. */
 export interface StudentMemoryContext {
   systemPrompt: {
     section(section: {
@@ -43,41 +46,49 @@ export interface StudentMemoryContext {
       text: string | ((assemble: unknown) => string)
     }): () => void
   }
-  on(
-    event: 'system-prompt/assemble',
-    listener: (
-      assembly: { sections: { name: string; text: string }[]; contexts: { name: string; text: string }[] },
-      assembleContext: unknown,
-      next: () => Promise<{ sections: { name: string; text: string }[]; contexts: { name: string; text: string }[] }>,
-    ) => Promise<{ sections: { name: string; text: string }[]; contexts: { name: string; text: string }[] }>,
-  ): () => void
+  on(event: string, listener: (...args: unknown[]) => unknown): () => void
+  tools?: { register(tool: unknown): unknown }
 }
 
-export function apply(ctx: StudentMemoryContext, config: StudentMemoryConfig = {}): MemoryStore {
-  const store = new MemoryStore()
+export function apply(ctx: StudentMemoryContext, config: StudentMemoryConfig = {}): StudentMemoryRuntime {
+  const persist = config.storePath ? new FilePersist(config.storePath) : new MemoryPersist()
+  const runtime = new StudentMemoryRuntime(persist, config)
+  void runtime.boot()
   const budget = config.l1BudgetChars ?? DEFAULT_L1_BUDGET
-  const watermark = config.watermark === undefined ? DEFAULT_WATERMARK : config.watermark
 
   ctx.systemPrompt.section({
     name: L2_SECTION,
     order: L2_ORDER,
-    text: () => renderL2(store.pinned),
+    text: () => runtime.l2Text(),
   })
 
   ctx.systemPrompt.context({
     name: L1_CONTEXT,
     order: L1_ORDER,
-    text: () => renderL1({
-      live: store.live,
-      recall: store.recall,
-      watermark,
-    }),
+    text: () => runtime.l1Text(),
   })
 
-  ctx.on('system-prompt/assemble', async (assembly, _assembleContext, next) => {
-    const resolved = await next()
-    return applyL1Budget(resolved, budget)
-  })
+  ctx.on('system-prompt/assemble', (async (
+    _assembly: { sections: { name: string; text: string }[]; contexts: { name: string; text: string }[] },
+    _assembleContext: unknown,
+    next: () => Promise<{ sections: { name: string; text: string }[]; contexts: { name: string; text: string }[] }>,
+  ) => applyL1Budget(await next(), budget)) as never)
 
-  return store
+  ctx.on('tools/result', ((exec: Record<string, unknown>, result: Record<string, unknown>) => {
+    const note = runtime.observeTool(observationFromExec(exec, result))
+    if (note.reminder) {
+      runtime.pinned = {
+        ...runtime.pinned,
+        taskLedger: [runtime.pinned.taskLedger, note.reminder].filter(Boolean).join('\n'),
+      }
+    }
+  }) as never)
+
+  ctx.on('agent/turn-stopping', (() => {
+    runtime.requestHarvest()
+  }) as never)
+
+  ctx.tools?.register(writeLessonTool(runtime))
+
+  return runtime
 }

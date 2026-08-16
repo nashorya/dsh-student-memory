@@ -18,6 +18,13 @@ export function renderL1(input: L1Live): string {
     const lines = recall.map((item) => `- ${item.id}: ${item.summary.trim()}`)
     parts.push(`## Recall\n\n${lines.join('\n')}`)
   }
+  const arcs = (input.openArcs ?? []).filter((id) => id.trim().length > 0)
+  if (arcs.length > 0) {
+    parts.push(`## Open arcs\n\n${arcs.map((id) => `- ${id}`).join('\n')}`)
+  }
+  if (input.harvest?.trim()) {
+    parts.push(input.harvest.trim())
+  }
   if (input.watermark) {
     parts.push(input.watermark)
   }

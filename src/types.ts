@@ -11,6 +11,8 @@ export interface RecalledLesson {
 export interface L1Live {
   live?: Record<string, string>
   recall?: RecalledLesson[]
+  openArcs?: string[]
+  harvest?: string
   watermark?: string | false
 }
 
@@ -27,6 +29,8 @@ export interface AssembledPrompt {
 export interface StudentMemoryConfig {
   l1BudgetChars?: number
   watermark?: string | false
+  /** JSON file used when storageDomain is not mounted. Rebuilt on boot. */
+  storePath?: string
 }
 
 export const L2_SECTION = 'student-memory:l2'
