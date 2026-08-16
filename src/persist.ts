@@ -1,40 +1,61 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import type { Lesson } from './lesson.ts'
+import type { Adr, TodoItem } from './types.ts'
 
-export interface LessonPersist {
-  load(): Promise<Lesson[]>
-  save(lessons: Lesson[]): Promise<void>
+export interface BoardState {
+  lessons: Lesson[]
+  adrs: Adr[]
+  todos: TodoItem[]
 }
 
-export class MemoryPersist implements LessonPersist {
-  constructor(private rows: Lesson[] = []) {}
+export interface BoardPersist {
+  load(): Promise<BoardState>
+  save(state: BoardState): Promise<void>
+}
 
-  async load(): Promise<Lesson[]> {
-    return [...this.rows]
+const empty = (): BoardState => ({ lessons: [], adrs: [], todos: [] })
+
+export class MemoryPersist implements BoardPersist {
+  constructor(private state: BoardState = empty()) {}
+
+  async load(): Promise<BoardState> {
+    return {
+      lessons: [...this.state.lessons],
+      adrs: [...this.state.adrs],
+      todos: [...this.state.todos],
+    }
   }
 
-  async save(lessons: Lesson[]): Promise<void> {
-    this.rows = [...lessons]
+  async save(state: BoardState): Promise<void> {
+    this.state = {
+      lessons: [...state.lessons],
+      adrs: [...state.adrs],
+      todos: [...state.todos],
+    }
   }
 }
 
-export class FilePersist implements LessonPersist {
+export class FilePersist implements BoardPersist {
   constructor(private readonly path: string) {}
 
-  async load(): Promise<Lesson[]> {
+  async load(): Promise<BoardState> {
     try {
       const raw = await readFile(this.path, 'utf8')
-      const parsed = JSON.parse(raw) as { lessons?: Lesson[] }
-      return Array.isArray(parsed.lessons) ? parsed.lessons : []
+      const parsed = JSON.parse(raw) as Partial<BoardState>
+      return {
+        lessons: Array.isArray(parsed.lessons) ? parsed.lessons : [],
+        adrs: Array.isArray(parsed.adrs) ? parsed.adrs : [],
+        todos: Array.isArray(parsed.todos) ? parsed.todos : [],
+      }
     } catch (err) {
-      if ((err as NodeJS.ErrnoException).code === 'ENOENT') return []
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') return empty()
       throw err
     }
   }
 
-  async save(lessons: Lesson[]): Promise<void> {
+  async save(state: BoardState): Promise<void> {
     await mkdir(dirname(this.path), { recursive: true })
-    await writeFile(this.path, `${JSON.stringify({ lessons }, null, 2)}\n`, 'utf8')
+    await writeFile(this.path, `${JSON.stringify(state, null, 2)}\n`, 'utf8')
   }
 }

@@ -19,4 +19,18 @@ describe('renderL2', () => {
     expect(text).toContain('confirmed: dsh context() is the L1 seam')
     expect(text).not.toContain('STUDENT_MEMORY_WATERMARK')
   })
+
+  it('renders ADR and its todos', () => {
+    const text = renderL2({}, {
+      adrs: [{ id: 'ADR-001', title: 'Pin L1 to user-role snapshot', status: 'accepted' }],
+      todos: [
+        { id: 't1', adrId: 'ADR-001', content: 'Register context()', status: 'done' },
+        { id: 't2', adrId: 'ADR-001', content: 'Wire assemble waterfall', status: 'doing' },
+      ],
+    })
+    expect(text).toContain('## ADR')
+    expect(text).toContain('ADR-001 accepted Pin L1 to user-role snapshot')
+    expect(text).toContain('## Todo')
+    expect(text).toContain('[doing] ADR-001 Wire assemble waterfall')
+  })
 })

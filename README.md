@@ -1,9 +1,6 @@
 # dsh-student-memory
 
-把 student-agent 的选择压带进 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)：分层上下文、lesson 准入、诚实小票。不 fork dsh。
-
-**给谁：** 在有测试的仓库里用 dsh code preset 的人。  
-**没有验证时：** 能用的笔记本，不是死掉的质检机。
+dsh 插件。lesson 记忆、L1/L2/L3、ADR、Todo。
 
 上游钉死 `47f943859bef60e4160492346772ded9b24f765a`。安装见 [INSTALL.md](./INSTALL.md)。
 
@@ -19,8 +16,8 @@
 | 判据 | tests 红转绿 → 晋升；tsc/CI → 次级晋升；无信号 → 隔离区 |
 | 召回 | 词重叠，空渲染不注入；摘要带 `⟦sm:id⟧` 水印 |
 | 小票 | `runtime.receipt()` / `runtime.sidebar()`：学到什么、验证到哪一档 |
-| 看板 | `~/.dsh/student-memory/dashboard.html`：L2 钉住、L1 本轮、L3 召回注入、lesson 三栏 |
-| 落盘 | `~/.dsh/student-memory/lessons.json`；启动时从磁盘重建 |
+| 看板 | 启动目录下 `.dsh-student-memory/dashboard.html`：AI / L1 L2 L3 / ADR / Todo / lesson |
+| 落盘 | `.dsh-student-memory/lessons.json` |
 
 还没有独立 React 侧栏组件（ui-slots 要 React 声明合并）。侧栏文案已经能渲染，Web 面板等宿主槽位稳定再挂。
 

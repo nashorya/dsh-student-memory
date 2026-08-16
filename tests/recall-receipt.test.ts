@@ -52,9 +52,11 @@ describe('receipt + sidebar', () => {
 
 describe('runtime recall into L1', () => {
   it('puts recalled watermarked text into the L1 body', async () => {
-    const persist = new MemoryPersist([
-      lesson('Stale patch anchors fail', 'Read the file immediately before patching', 'tests-green'),
-    ])
+    const persist = new MemoryPersist({
+      lessons: [lesson('Stale patch anchors fail', 'Read the file immediately before patching', 'tests-green')],
+      adrs: [],
+      todos: [],
+    })
     const runtime = new StudentMemoryRuntime(persist, { watermark: false })
     await runtime.boot()
     runtime.refreshRecall('stale patch anchors')

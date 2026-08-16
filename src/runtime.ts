@@ -2,7 +2,7 @@ import { applyObservation, nextArcId, openArcs } from './arc.ts'
 import type { Arc, ToolObservation } from './arc.ts'
 import type { Lesson, LessonDraft } from './lesson.ts'
 import { MemoryPersist } from './persist.ts'
-import type { LessonPersist } from './persist.ts'
+import type { BoardPersist } from './persist.ts'
 import { recallLessons } from './recall.ts'
 import { writeDashboard } from './dashboard.ts'
 import type { DashboardSnapshot } from './dashboard.ts'
@@ -10,7 +10,7 @@ import { renderReceipt, renderSidebar } from './receipt.ts'
 import { writeLesson } from './write-lesson.ts'
 import { renderL1 } from './l1.ts'
 import { renderL2 } from './l2.ts'
-import type { L2Pinned, RecalledLesson, StudentMemoryConfig } from './types.ts'
+import type { Adr, L2Pinned, RecalledLesson, StudentMemoryConfig, TodoItem } from './types.ts'
 import { DEFAULT_WATERMARK } from './types.ts'
 
 export const HARVEST_PROMPT =
@@ -24,30 +24,47 @@ export class StudentMemoryRuntime {
   liveQuery = ''
   private arcs: Arc[] = []
   private lessons: Lesson[] = []
+  private adrs: Adr[] = []
+  private todos: TodoItem[] = []
   private sessionLearned: Lesson[] = []
   private lastRecall: RecalledLesson[] = []
   private arcSeq = 1
   private harvest = false
+  private moves: string[] = []
 
   constructor(
-    private readonly persist: LessonPersist = new MemoryPersist(),
+    private readonly persist: BoardPersist = new MemoryPersist(),
     private readonly config: StudentMemoryConfig = {},
   ) {}
 
   async boot(): Promise<void> {
-    this.lessons = await this.persist.load()
+    const board = await this.persist.load()
+    this.lessons = board.lessons
+    this.adrs = board.adrs
+    this.todos = board.todos
     await this.flushDashboard()
   }
 
   snapshot(): DashboardSnapshot {
+    const doing = this.todos.find((todo) => todo.status === 'doing')
+    const adr = doing ? this.adrs.find((item) => item.id === doing.adrId) : this.adrs[0]
+    const now = [
+      adr ? `ADR ${adr.id} ${adr.title}` : '',
+      doing ? `todo ${doing.content}` : '',
+      this.liveQuery ? `query ${this.liveQuery}` : '',
+    ].filter(Boolean).join('\n')
+
     return {
       updatedAt: new Date().toISOString(),
+      now,
+      moves: [...this.moves],
       l2: this.l2Text(),
       l1: this.l1Text(),
       l3: [...this.lastRecall],
       lessons: this.allLessons(),
-      sessionLearnedIds: this.sessionLearned.map((item) => item.id),
-      receipt: this.receipt(),
+      adrs: [...this.adrs],
+      todos: [...this.todos],
+      openArcs: this.openArcs(),
       dashboardPath: this.config.dashboardPath,
     }
   }
@@ -69,11 +86,23 @@ export class StudentMemoryRuntime {
     return openArcs(this.arcs)
   }
 
+  setAdrs(adrs: Adr[]): void {
+    this.adrs = [...adrs]
+    void this.persistBoard()
+  }
+
+  setTodos(todos: TodoItem[]): void {
+    this.todos = [...todos]
+    void this.persistBoard()
+  }
+
   observeTool(obs: ToolObservation): { reminder?: string } {
     const before = this.openArcs().length
     this.arcs = applyObservation(this.arcs, obs, () => nextArcId(this.arcSeq++))
     const opened = this.openArcs()
     if (opened.length > before) this.harvest = true
+    this.moves.push(obs.isError ? `${obs.toolName} error` : `${obs.toolName} ok`)
+    if (this.moves.length > 16) this.moves = this.moves.slice(-16)
     const closedGreen = opened.some((arc) =>
       arc.signals.includes('tests-green') || arc.signals.includes('tsc-ci'))
     void this.flushDashboard()
@@ -88,11 +117,11 @@ export class StudentMemoryRuntime {
     if (!result.ok) return { ok: false, text: result.error }
     this.lessons = [...this.lessons, result.lesson]
     this.sessionLearned = [...this.sessionLearned, result.lesson]
+    this.moves.push(`write_lesson ${result.lesson.id} ${result.lesson.trust}`)
     this.arcs = this.arcs.map((arc) =>
       arc.arcId === draft.arcId ? { ...arc, consumed: true } : arc)
     if (this.openArcs().length === 0) this.harvest = false
-    void this.persist.save(this.lessons)
-    void this.flushDashboard()
+    void this.persistBoard()
     return { ok: true, text: `Recorded ${result.lesson.id} (${result.lesson.status}, ${result.lesson.trust}).` }
   }
 
@@ -111,7 +140,7 @@ export class StudentMemoryRuntime {
   }
 
   l2Text(): string {
-    return renderL2(this.pinned)
+    return renderL2(this.pinned, { adrs: this.adrs, todos: this.todos })
   }
 
   l1Text(): string {
@@ -143,5 +172,14 @@ export class StudentMemoryRuntime {
       injected: this.lastRecall.map((item) => item.id),
       learned: this.sessionLearned,
     })
+  }
+
+  private async persistBoard(): Promise<void> {
+    await this.persist.save({
+      lessons: this.lessons,
+      adrs: this.adrs,
+      todos: this.todos,
+    })
+    await this.flushDashboard()
   }
 }

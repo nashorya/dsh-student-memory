@@ -1,3 +1,16 @@
+export interface Adr {
+  id: string
+  title: string
+  status: 'proposed' | 'accepted' | 'superseded'
+}
+
+export interface TodoItem {
+  id: string
+  adrId: string
+  content: string
+  status: 'pending' | 'doing' | 'done'
+}
+
 export interface L2Pinned {
   workingMemory?: string
   taskLedger?: string
@@ -6,6 +19,8 @@ export interface L2Pinned {
 export interface RecalledLesson {
   id: string
   summary: string
+  /** Why this lesson was selected for this turn. */
+  reason?: string
 }
 
 export interface L1Live {

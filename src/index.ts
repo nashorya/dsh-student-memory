@@ -1,4 +1,3 @@
-import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { applyL1Budget } from './budget.ts'
 import { FilePersist, MemoryPersist } from './persist.ts'
@@ -30,7 +29,7 @@ export {
   L2_ORDER,
   L2_SECTION,
 } from './types.ts'
-export type { AssembledPrompt, L1Live, L2Pinned, StudentMemoryConfig } from './types.ts'
+export type { Adr, AssembledPrompt, L1Live, L2Pinned, StudentMemoryConfig, TodoItem } from './types.ts'
 export type { Lesson, LessonDraft, LessonTrust } from './lesson.ts'
 
 export const name = 'student-memory'
@@ -54,7 +53,7 @@ export interface StudentMemoryContext {
 }
 
 export function defaultMemoryDir(): string {
-  return join(homedir(), '.dsh', 'student-memory')
+  return join(process.cwd(), '.dsh-student-memory')
 }
 
 export function apply(ctx: StudentMemoryContext, config: StudentMemoryConfig = {}): StudentMemoryRuntime {
@@ -65,6 +64,7 @@ export function apply(ctx: StudentMemoryContext, config: StudentMemoryConfig = {
   const persist = persistMode === 'file' ? new FilePersist(storePath) : new MemoryPersist()
   const runtime = new StudentMemoryRuntime(persist, { ...config, storePath, dashboardPath })
   void runtime.boot()
+  if (dashboardPath) console.info(`[student-memory] ${dashboardPath}`)
   const budget = config.l1BudgetChars ?? DEFAULT_L1_BUDGET
 
   ctx.systemPrompt.section({

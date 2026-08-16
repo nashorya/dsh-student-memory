@@ -8,7 +8,7 @@ import { MemoryPersist } from '../src/persist.ts'
 import { StudentMemoryRuntime } from '../src/runtime.ts'
 
 describe('renderDashboard', () => {
-  it('shows L2, L1, L3 injection, and lesson columns', () => {
+  it('shows ADR, todo, AI, and L1/L2/L3', () => {
     const isolated = createLesson({
       arcId: 'arc_1', cause: 'Guessed oldText', fixPattern: 'Re-read first',
       contrast: '', doNotApplyWhen: '',
@@ -19,39 +19,51 @@ describe('renderDashboard', () => {
     }, 'tests-green')
     const html = renderDashboard({
       updatedAt: '2026-08-16T00:00:00.000Z',
-      l2: '## Working memory\n\nGoal: ship the board',
+      now: 'ADR ADR-001 Pin L1\ntodo Wire waterfall',
+      moves: ['bash error'],
+      l2: '## ADR\n\n- ADR-001 accepted Pin L1',
       l1: '## Open arcs\n\n- arc_1',
       l3: [{ id: green.id, summary: `Cause: Stale import\n${green.watermark}` }],
       lessons: [isolated, green],
-      sessionLearnedIds: [green.id],
-      receipt: '这次我学到了这 1 条',
+      adrs: [{ id: 'ADR-001', title: 'Pin L1 to user-role snapshot', status: 'accepted' }],
+      todos: [{ id: 't1', adrId: 'ADR-001', content: 'Wire waterfall', status: 'doing' }],
+      openArcs: [{ arcId: 'arc_1', openedBy: 'e1', signals: ['tool-error'], consumed: false }],
     })
-    expect(html).toContain('L2 钉住')
-    expect(html).toContain('Goal: ship the board')
-    expect(html).toContain('L1 本轮')
+    expect(html).toContain('ADR')
+    expect(html).toContain('ADR-001')
+    expect(html).toContain('Pin L1 to user-role snapshot')
+    expect(html).toContain('Todo')
+    expect(html).toContain('Wire waterfall')
+    expect(html).toContain('L2')
+    expect(html).toContain('L1')
+    expect(html).toContain('L3')
     expect(html).toContain('arc_1')
-    expect(html).toContain('L3 召回注入')
     expect(html).toContain(green.watermark)
-    expect(html).toContain('隔离区')
-    expect(html).toContain('测试转绿')
-    expect(html).toContain('Guessed oldText')
+    expect(html).toContain('isolated')
+    expect(html).toContain('tests-green')
+    expect(html).not.toContain('不是 fork')
+    expect(html).not.toContain('选择压')
   })
 })
 
 describe('runtime writes dashboard.html', () => {
-  it('flushes L1/L2/L3 and the lesson board to disk', async () => {
+  it('flushes ADR/todo and layers to disk', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'sm-dash-'))
     const dashboardPath = join(dir, 'dashboard.html')
-    const persist = new MemoryPersist()
-    const runtime = new StudentMemoryRuntime(persist, { dashboardPath, watermark: 'STUDENT_MEMORY_WATERMARK' })
+    const runtime = new StudentMemoryRuntime(new MemoryPersist(), {
+      dashboardPath,
+      watermark: 'STUDENT_MEMORY_WATERMARK',
+    })
     await runtime.boot()
-    runtime.pinned = { workingMemory: 'Goal: see layers' }
+    runtime.setAdrs([{ id: 'ADR-001', title: 'See layers', status: 'proposed' }])
+    runtime.setTodos([{ id: 't1', adrId: 'ADR-001', content: 'Open dashboard', status: 'doing' }])
     runtime.observeTool({ toolCallId: 'e', toolName: 'bash', isError: true, argsText: 'vitest' })
-    runtime.refreshRecall('no-match-zzzz')
     await runtime.flushDashboard()
     const html = await readFile(dashboardPath, 'utf8')
-    expect(html).toContain('Goal: see layers')
+    expect(html).toContain('ADR-001')
+    expect(html).toContain('See layers')
+    expect(html).toContain('Open dashboard')
     expect(html).toContain('STUDENT_MEMORY_WATERMARK')
-    expect(html).toContain('本轮没有注入 lesson')
+    expect(html).toContain('L3')
   })
 })

@@ -34,8 +34,9 @@ export function recallLessons(
     .filter((row) => row.score > 0 && renderLesson(row.lesson).length > 0)
     .sort((a, b) => b.score - a.score)
     .slice(0, limit)
-    .map(({ lesson }) => ({
+    .map(({ lesson, score }) => ({
       id: lesson.id,
       summary: `${renderLesson(lesson)}\n${lesson.watermark}`,
+      reason: `和当前任务「${query.trim()}」有 ${Math.round(score * 100)}% 词重叠，所以塞进本轮 L1。`,
     }))
 }
