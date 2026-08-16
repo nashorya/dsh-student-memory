@@ -13,8 +13,8 @@ export function truncateL1(text: string, maxChars: number): string {
 export function applyL1Budget<T extends AssembledPrompt>(
   assembly: T | null | undefined,
   maxChars: number,
-): T | { sections: []; contexts: [] } {
-  if (!assembly) return { sections: [], contexts: [] }
+): T {
+  if (!assembly) return { sections: [], contexts: [] } as unknown as T
   const contexts = assembly.contexts ?? []
   return {
     ...assembly,
