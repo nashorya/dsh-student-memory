@@ -28,7 +28,11 @@ pnpm dsh web            # 已验证 http://127.0.0.1:3080 200，插件在 compos
 pnpm dsh web --patch /Users/juejuezi/dsh-plugin-v1/student-memory/dev.patch.yml
 ```
 
-可选：在 `dev.patch.yml` 里加 `storePath`，lesson 落到该 JSON，下次会话从磁盘重建。
+看板（L1 / L2 / L3 + lesson 分栏）写在：
+
+`~/.dsh/student-memory/dashboard.html`
+
+浏览器打开即可，每 3 秒刷新。dsh 跑着、有注入或写 lesson 时会改这个文件。
 
 ## 以后用 bundle
 

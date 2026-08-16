@@ -19,7 +19,8 @@
 | 判据 | tests 红转绿 → 晋升；tsc/CI → 次级晋升；无信号 → 隔离区 |
 | 召回 | 词重叠，空渲染不注入；摘要带 `⟦sm:id⟧` 水印 |
 | 小票 | `runtime.receipt()` / `runtime.sidebar()`：学到什么、验证到哪一档 |
-| 落盘 | `storePath` JSON；启动时从磁盘重建 |
+| 看板 | `~/.dsh/student-memory/dashboard.html`：L2 钉住、L1 本轮、L3 召回注入、lesson 三栏 |
+| 落盘 | `~/.dsh/student-memory/lessons.json`；启动时从磁盘重建 |
 
 还没有独立 React 侧栏组件（ui-slots 要 React 声明合并）。侧栏文案已经能渲染，Web 面板等宿主槽位稳定再挂。
 

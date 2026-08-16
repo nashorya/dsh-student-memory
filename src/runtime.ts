@@ -4,6 +4,8 @@ import type { Lesson, LessonDraft } from './lesson.ts'
 import { MemoryPersist } from './persist.ts'
 import type { LessonPersist } from './persist.ts'
 import { recallLessons } from './recall.ts'
+import { writeDashboard } from './dashboard.ts'
+import type { DashboardSnapshot } from './dashboard.ts'
 import { renderReceipt, renderSidebar } from './receipt.ts'
 import { writeLesson } from './write-lesson.ts'
 import { renderL1 } from './l1.ts'
@@ -34,6 +36,25 @@ export class StudentMemoryRuntime {
 
   async boot(): Promise<void> {
     this.lessons = await this.persist.load()
+    await this.flushDashboard()
+  }
+
+  snapshot(): DashboardSnapshot {
+    return {
+      updatedAt: new Date().toISOString(),
+      l2: this.l2Text(),
+      l1: this.l1Text(),
+      l3: [...this.lastRecall],
+      lessons: this.allLessons(),
+      sessionLearnedIds: this.sessionLearned.map((item) => item.id),
+      receipt: this.receipt(),
+      dashboardPath: this.config.dashboardPath,
+    }
+  }
+
+  async flushDashboard(): Promise<void> {
+    if (!this.config.dashboardPath) return
+    await writeDashboard(this.config.dashboardPath, this.snapshot())
   }
 
   allLessons(): Lesson[] {
@@ -55,6 +76,7 @@ export class StudentMemoryRuntime {
     if (opened.length > before) this.harvest = true
     const closedGreen = opened.some((arc) =>
       arc.signals.includes('tests-green') || arc.signals.includes('tsc-ci'))
+    void this.flushDashboard()
     if (closedGreen && opened.length > 0) {
       return { reminder: ARC_REMINDER }
     }
@@ -70,18 +92,21 @@ export class StudentMemoryRuntime {
       arc.arcId === draft.arcId ? { ...arc, consumed: true } : arc)
     if (this.openArcs().length === 0) this.harvest = false
     void this.persist.save(this.lessons)
+    void this.flushDashboard()
     return { ok: true, text: `Recorded ${result.lesson.id} (${result.lesson.status}, ${result.lesson.trust}).` }
   }
 
   refreshRecall(query: string): RecalledLesson[] {
     this.liveQuery = query
     this.lastRecall = recallLessons(this.lessons, query)
+    void this.flushDashboard()
     return this.lastRecall
   }
 
   requestHarvest(): boolean {
     const needed = this.openArcs().length > 0
     this.harvest = needed
+    void this.flushDashboard()
     return needed
   }
 

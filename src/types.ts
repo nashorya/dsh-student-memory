@@ -29,8 +29,11 @@ export interface AssembledPrompt {
 export interface StudentMemoryConfig {
   l1BudgetChars?: number
   watermark?: string | false
-  /** JSON file used when storageDomain is not mounted. Rebuilt on boot. */
+  persist?: 'memory' | 'file'
+  /** JSON file used when persist=file. Rebuilt on boot. */
   storePath?: string
+  /** Static HTML board. Defaults next to storePath. */
+  dashboardPath?: string
 }
 
 export const L2_SECTION = 'student-memory:l2'

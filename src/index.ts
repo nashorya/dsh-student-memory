@@ -1,3 +1,5 @@
+import { homedir } from 'node:os'
+import { join } from 'node:path'
 import { applyL1Budget } from './budget.ts'
 import { FilePersist, MemoryPersist } from './persist.ts'
 import { observationFromExec, writeLessonTool } from './tool.ts'
@@ -17,6 +19,7 @@ export { renderL2 } from './l2.ts'
 export { StudentMemoryRuntime, ARC_REMINDER, HARVEST_PROMPT } from './runtime.ts'
 export { writeLessonTool } from './tool.ts'
 export { renderReceipt, renderSidebar } from './receipt.ts'
+export { renderDashboard } from './dashboard.ts'
 export { verdictOf } from './verdict.ts'
 export { recallLessons } from './recall.ts'
 export {
@@ -50,9 +53,16 @@ export interface StudentMemoryContext {
   tools: { register(tool: unknown): unknown }
 }
 
+export function defaultMemoryDir(): string {
+  return join(homedir(), '.dsh', 'student-memory')
+}
+
 export function apply(ctx: StudentMemoryContext, config: StudentMemoryConfig = {}): StudentMemoryRuntime {
-  const persist = config.storePath ? new FilePersist(config.storePath) : new MemoryPersist()
-  const runtime = new StudentMemoryRuntime(persist, config)
+  const persistMode = config.persist ?? 'file'
+  const storePath = config.storePath ?? join(defaultMemoryDir(), 'lessons.json')
+  const dashboardPath = config.dashboardPath ?? join(defaultMemoryDir(), 'dashboard.html')
+  const persist = persistMode === 'file' ? new FilePersist(storePath) : new MemoryPersist()
+  const runtime = new StudentMemoryRuntime(persist, { ...config, storePath, dashboardPath })
   void runtime.boot()
   const budget = config.l1BudgetChars ?? DEFAULT_L1_BUDGET
 
@@ -72,7 +82,11 @@ export function apply(ctx: StudentMemoryContext, config: StudentMemoryConfig = {
     _assembly: { sections: { name: string; text: string }[]; contexts: { name: string; text: string }[] },
     _assembleContext: unknown,
     next: () => Promise<{ sections: { name: string; text: string }[]; contexts: { name: string; text: string }[] }>,
-  ) => applyL1Budget(await next(), budget)) as never)
+  ) => {
+    const trimmed = applyL1Budget(await next(), budget)
+    void runtime.flushDashboard()
+    return trimmed
+  }) as never)
 
   ctx.on('tools/result', ((exec: Record<string, unknown>, result: Record<string, unknown>) => {
     const note = runtime.observeTool(observationFromExec(exec, result))

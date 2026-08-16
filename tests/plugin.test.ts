@@ -41,7 +41,7 @@ function fakeCtx() {
 describe('apply', () => {
   it('registers L2 section and L1 context providers that read the live store', () => {
     const { ctx, sections, contexts } = fakeCtx()
-    const runtime = apply(ctx)
+    const runtime = apply(ctx, { persist: 'memory' })
     runtime.pinned = { workingMemory: 'Goal: dogfood' }
     runtime.liveQuery = 'spike'
     expect(sections.map((s) => s.name)).toEqual([L2_SECTION])
@@ -53,7 +53,7 @@ describe('apply', () => {
 
   it('waterfall trims only L1', async () => {
     const { ctx, waterfalls } = fakeCtx()
-    apply(ctx, { l1BudgetChars: 8 })
+    apply(ctx, { persist: 'memory', l1BudgetChars: 8 })
     const out = await waterfalls[0]!({
       sections: [{ name: L2_SECTION, text: 'keep-me' }],
       contexts: [{ name: L1_CONTEXT, text: 'abcdefghijklmnop' }],
