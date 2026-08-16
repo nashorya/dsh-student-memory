@@ -42,7 +42,8 @@ export class FilePersist implements BoardPersist {
   async load(): Promise<BoardState> {
     try {
       const raw = await readFile(this.path, 'utf8')
-      const parsed = JSON.parse(raw) as Partial<BoardState>
+      const parsed = JSON.parse(raw) as Partial<BoardState> | null
+      if (!parsed || typeof parsed !== 'object') return empty()
       return {
         lessons: Array.isArray(parsed.lessons) ? parsed.lessons : [],
         adrs: Array.isArray(parsed.adrs) ? parsed.adrs : [],

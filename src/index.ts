@@ -56,16 +56,17 @@ export function defaultMemoryDir(): string {
   return join(process.cwd(), '.dsh-student-memory')
 }
 
-export function apply(ctx: StudentMemoryContext, config: StudentMemoryConfig = {}): StudentMemoryRuntime {
-  const persistMode = config.persist ?? 'file'
-  const storePath = config.storePath ?? join(defaultMemoryDir(), 'lessons.json')
-  const dashboardPath = config.dashboardPath
+export function apply(ctx: StudentMemoryContext, config: StudentMemoryConfig | null | undefined = {}): StudentMemoryRuntime {
+  const options = config ?? {}
+  const persistMode = options.persist ?? 'file'
+  const storePath = options.storePath ?? join(defaultMemoryDir(), 'lessons.json')
+  const dashboardPath = options.dashboardPath
     ?? (persistMode === 'file' ? join(defaultMemoryDir(), 'dashboard.html') : undefined)
   const persist = persistMode === 'file' ? new FilePersist(storePath) : new MemoryPersist()
-  const runtime = new StudentMemoryRuntime(persist, { ...config, storePath, dashboardPath })
+  const runtime = new StudentMemoryRuntime(persist, { ...options, storePath, dashboardPath })
   void runtime.boot()
   if (dashboardPath) console.info(`[student-memory] ${dashboardPath}`)
-  const budget = config.l1BudgetChars ?? DEFAULT_L1_BUDGET
+  const budget = options.l1BudgetChars ?? DEFAULT_L1_BUDGET
 
   ctx.systemPrompt.section({
     name: L2_SECTION,

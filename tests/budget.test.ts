@@ -28,6 +28,10 @@ describe('applyL1Budget', () => {
     expect(l1?.text.length).toBeGreaterThan(10)
   })
 
+  it('treats a missing assembly as empty', () => {
+    expect(applyL1Budget(undefined, 10)).toEqual({ sections: [], contexts: [] })
+  })
+
   it('does nothing when L1 is absent or already under budget', () => {
     expect(applyL1Budget(assembly('ok'), 100).contexts[1]?.text).toBe('ok')
     const noL1 = { sections: [], contexts: [{ name: 'approval:policy', text: 'ask' }] }

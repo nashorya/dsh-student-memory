@@ -5,12 +5,14 @@ import type { AssembledPrompt } from './types.ts'
  * Truncate only `student-memory:l1` after assembly. Other contexts and L2 stay.
  */
 export function applyL1Budget(
-  assembly: AssembledPrompt,
+  assembly: AssembledPrompt | null | undefined,
   maxChars: number,
 ): AssembledPrompt {
+  const sections = assembly?.sections ?? []
+  const contexts = assembly?.contexts ?? []
   return {
-    sections: assembly.sections,
-    contexts: assembly.contexts.map((entry) => {
+    sections,
+    contexts: contexts.map((entry) => {
       if (entry.name !== L1_CONTEXT || entry.text.length <= maxChars) return entry
       const kept = entry.text.slice(0, maxChars)
       return {

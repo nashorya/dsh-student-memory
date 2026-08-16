@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { apply, L1_CONTEXT, L2_SECTION } from '../src/index.ts'
+import { apply, L1_CONTEXT, L2_SECTION, writeLessonTool } from '../src/index.ts'
+import { StudentMemoryRuntime } from '../src/runtime.ts'
 
 function fakeCtx() {
   const sections: Array<{ name: string; order: number; text: () => string }> = []
@@ -64,5 +65,13 @@ describe('apply', () => {
     expect(out.sections[0]?.text).toBe('keep-me')
     expect(out.contexts[0]?.text.startsWith('abcdefgh')).toBe(true)
     expect(out.contexts[0]?.text).toContain('truncated')
+  })
+})
+
+describe('write_lesson schema', () => {
+  it('exposes JSON-Schema properties so the host can Object.keys them', () => {
+    const tool = writeLessonTool(new StudentMemoryRuntime())
+    const properties = (tool.parameters as { properties?: Record<string, unknown> }).properties
+    expect(Object.keys(properties ?? {})).toEqual(expect.arrayContaining(['arcId', 'cause', 'fixPattern']))
   })
 })
