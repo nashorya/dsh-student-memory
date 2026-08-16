@@ -1,5 +1,5 @@
 import { join } from 'node:path'
-import { applyL1Budget } from './budget.ts'
+import { truncateL1 } from './budget.ts'
 import { FilePersist, MemoryPersist } from './persist.ts'
 import { observationFromExec, writeLessonTool } from './tool.ts'
 import { StudentMemoryRuntime } from './runtime.ts'
@@ -12,7 +12,7 @@ import {
 } from './types.ts'
 import type { StudentMemoryConfig } from './types.ts'
 
-export { applyL1Budget } from './budget.ts'
+export { applyL1Budget, truncateL1 } from './budget.ts'
 export { renderL1 } from './l1.ts'
 export { renderL2 } from './l2.ts'
 export { StudentMemoryRuntime, ARC_REMINDER, HARVEST_PROMPT } from './runtime.ts'
@@ -77,18 +77,8 @@ export function apply(ctx: StudentMemoryContext, config: StudentMemoryConfig | n
   ctx.systemPrompt.context({
     name: L1_CONTEXT,
     order: L1_ORDER,
-    text: () => runtime.l1Text(),
+    text: () => truncateL1(runtime.l1Text(), budget),
   })
-
-  ctx.on('system-prompt/assemble', (async (
-    _assembly: { sections: { name: string; text: string }[]; contexts: { name: string; text: string }[] },
-    _assembleContext: unknown,
-    next: () => Promise<{ sections: { name: string; text: string }[]; contexts: { name: string; text: string }[] }>,
-  ) => {
-    const trimmed = applyL1Budget(await next(), budget)
-    void runtime.flushDashboard()
-    return trimmed
-  }) as never)
 
   ctx.on('tools/result', ((exec: Record<string, unknown>, result: Record<string, unknown>) => {
     const note = runtime.observeTool(observationFromExec(exec, result))

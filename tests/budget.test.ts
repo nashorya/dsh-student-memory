@@ -37,4 +37,16 @@ describe('applyL1Budget', () => {
     const noL1 = { sections: [], contexts: [{ name: 'approval:policy', text: 'ask' }] }
     expect(applyL1Budget(noL1, 10)).toEqual(noL1)
   })
+
+  it('keeps tools and variables on the assembly', () => {
+    const full = {
+      ...assembly('x'.repeat(40)),
+      tools: [{ name: 'bash' }],
+      variables: { cwd: '/tmp', model: 'x' },
+    }
+    const out = applyL1Budget(full, 10)
+    expect(out.tools).toEqual([{ name: 'bash' }])
+    expect(out.variables).toEqual({ cwd: '/tmp', model: 'x' })
+    expect(Object.keys(out.variables)).toEqual(['cwd', 'model'])
+  })
 })

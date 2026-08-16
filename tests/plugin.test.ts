@@ -52,19 +52,13 @@ describe('apply', () => {
     expect(contexts[0]?.text()).toContain('STUDENT_MEMORY_WATERMARK')
   })
 
-  it('waterfall trims only L1', async () => {
-    const { ctx, waterfalls } = fakeCtx()
-    apply(ctx, { persist: 'memory', l1BudgetChars: 8 })
-    const out = await waterfalls[0]!({
-      sections: [{ name: L2_SECTION, text: 'keep-me' }],
-      contexts: [{ name: L1_CONTEXT, text: 'abcdefghijklmnop' }],
-    }, {}, async () => ({
-      sections: [{ name: L2_SECTION, text: 'keep-me' }],
-      contexts: [{ name: L1_CONTEXT, text: 'abcdefghijklmnop' }],
-    }))
-    expect(out.sections[0]?.text).toBe('keep-me')
-    expect(out.contexts[0]?.text.startsWith('abcdefgh')).toBe(true)
-    expect(out.contexts[0]?.text).toContain('truncated')
+  it('truncates L1 in the context provider, not the assemble waterfall', () => {
+    const { ctx, contexts } = fakeCtx()
+    const runtime = apply(ctx, { persist: 'memory', l1BudgetChars: 8 })
+    runtime.liveQuery = 'abcdefghijklmnop'
+    const text = contexts[0]?.text() ?? ''
+    expect(text).toContain('truncated')
+    expect(text.startsWith('## Live')).toBe(true)
   })
 })
 
