@@ -17,6 +17,51 @@ export function asDraft(args: Record<string, unknown> | null | undefined): Lesso
   }
 }
 
+export function planStepTool(runtime: StudentMemoryRuntime) {
+  return {
+    name: 'plan_step',
+    description: 'Write the todolist for one stage. Replaces that stage\'s todos.',
+    parameters: {
+      type: 'object',
+      properties: {
+        stageId: { type: 'string', description: 'Stage id to plan.' },
+        todos: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              content: { type: 'string' },
+              status: { type: 'string', enum: ['pending', 'doing', 'done'] },
+            },
+            required: ['content'],
+          },
+        },
+      },
+      required: ['stageId', 'todos'],
+    },
+    output: {
+      schema: { type: 'string' },
+      render: (_args: unknown, value: unknown) => [{ type: 'text', text: String(value) }],
+    },
+    async execute(args: Record<string, unknown> | null | undefined) {
+      const rec = args && typeof args === 'object' ? args : {}
+      const stageId = typeof rec.stageId === 'string' ? rec.stageId : ''
+      const raw = Array.isArray(rec.todos) ? rec.todos : []
+      const todos = raw.flatMap((row) => {
+        const item = row && typeof row === 'object' ? row as Record<string, unknown> : {}
+        const content = String(item.content ?? '').trim()
+        if (!content) return []
+        const status: 'pending' | 'doing' | 'done' | undefined =
+          item.status === 'doing' || item.status === 'done' || item.status === 'pending'
+            ? item.status
+            : undefined
+        return [{ content, ...(status ? { status } : {}) }]
+      })
+      return runtime.planStep(stageId, todos)
+    },
+  }
+}
+
 export function writeLessonTool(runtime: StudentMemoryRuntime) {
   return {
     name: 'write_lesson',

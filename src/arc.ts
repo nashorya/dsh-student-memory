@@ -8,11 +8,14 @@ export interface ToolObservation {
   resultText?: string
 }
 
+export const ERROR_TEXT_CHARS = 400
+
 export interface Arc {
   arcId: string
   openedBy: string
   signals: ArcSignal[]
   consumed: boolean
+  errorText?: string
 }
 
 const TEST_RE = /vitest|pytest|npm test|pnpm test|yarn test|cargo test|go test|jest|mocha|npx test/i
@@ -34,11 +37,13 @@ export function applyObservation(arcs: Arc[], obs: ToolObservation, nextId: () =
   const kind = classifyObservation(obs)
   if (kind === 'neutral') return arcs
   if (kind === 'tool-error') {
+    const errorText = (obs.resultText ?? obs.argsText ?? '').slice(0, ERROR_TEXT_CHARS)
     return [...arcs, {
       arcId: nextId(),
       openedBy: obs.toolCallId,
       signals: ['tool-error'],
       consumed: false,
+      ...(errorText ? { errorText } : {}),
     }]
   }
   const open = [...arcs].reverse().find((arc) => !arc.consumed && arc.signals.includes('tool-error'))

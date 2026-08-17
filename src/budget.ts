@@ -1,9 +1,9 @@
 import { L1_CONTEXT } from './types.ts'
 import type { AssembledPrompt } from './types.ts'
 
-export function truncateL1(text: string, maxChars: number): string {
+export function truncateL1(text: string, maxChars: number, layer = 'L1'): string {
   if (text.length <= maxChars) return text
-  return `${text.slice(0, maxChars)}\n\n[student-memory: L1 truncated to ${maxChars} chars]`
+  return `${text.slice(0, maxChars)}\n\n[student-memory: ${layer} truncated to ${maxChars} chars]`
 }
 
 /**

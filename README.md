@@ -1,29 +1,72 @@
 # dsh-student-memory
 
-dsh 插件。lesson 记忆、L1/L2/L3、ADR、Todo。
+DeepSeek Harness 的学生记忆插件。模型每轮只看见一份 L1 工作集；任务图、旧经验和用量在界面上分栏看。
 
-上游钉死 `47f943859bef60e4160492346772ded9b24f765a`。安装见 [INSTALL.md](./INSTALL.md)。
+钉死上游：dsh `47f943859bef60e4160492346772ded9b24f765a`（0.1.0-rc.5 线）。
 
-## 现在能做什么
+## 安装
 
-| 层 | 行为 |
+本机已装 dsh、能跑 `dsh web`：
+
+```sh
+dsh plugin --profile web add github:nashorya/dsh-student-memory
+```
+
+装完重启 web：
+
+```sh
+dsh web
+```
+
+卸掉：
+
+```sh
+dsh plugin --profile web remove dsh-student-memory
+```
+
+从源码 checkout 装（开发）：
+
+```sh
+dsh plugin --profile web add /path/to/dsh-student-memory
+```
+
+Git 源码安装时，pnpm ≥10 可能拦住 `prepare`。按提示把 `allowBuilds` 写进 `~/.dsh/profiles/web/pnpm-workspace.yaml`，再跑一次 `add`。
+
+装上后会关掉 `compaction-basic` 和 `command-compact`，避免旧轮次被卷进摘要。
+
+## 界面
+
+打开一个会话：
+
+- **左栏**：ADR → 阶段 → 待办，按已完成 / 当前工作 / 下一步排。顶部「会话」折叠里还能换会话。
+- **中间**：dsh 原生对话。
+- **右栏**：子 agent、海上 SVG（捞是取用，沉是写入）、token 消耗（输入 / 输出 / 缓存命中）、本拍状态和工具调用。
+
+会话头上有「舵手」按钮，关掉右栏后可以再打开。看板页也可以直接开：`http://127.0.0.1:3080/student-memory`。
+
+## 模型侧
+
+| 块 | 作用 |
 |---|---|
-| L2 | `systemPrompt.section` 钉住 working memory / ledger |
-| L1 | `systemPrompt.context` 每轮重建的 user-role 快照（open arcs、召回、收割提醒） |
-| 预算 | `system-prompt/assemble` 只裁 L1 |
-| 弧线 | `tools/result` 上错误开弧、签发 `arcId`；测试转绿 / tsc 记到弧上 |
-| write_lesson | 模型只填语义；必须引用仍开放的 `arcId`；空 cause/fix 不落盘 |
-| 判据 | tests 红转绿 → 晋升；tsc/CI → 次级晋升；无信号 → 隔离区 |
-| 召回 | 词重叠，空渲染不注入；摘要带 `⟦sm:id⟧` 水印 |
-| 小票 | `runtime.receipt()` / `runtime.sidebar()`：学到什么、验证到哪一档 |
-| 看板 | 启动目录下 `.dsh-student-memory/dashboard.html`：AI / L1 L2 L3 / ADR / Todo / lesson |
-| 落盘 | `.dsh-student-memory/lessons.json` |
+| L0 | `write_lesson` 合同，静态 system 前缀 |
+| L1 | 唯一进模型的工作集：目标、阶段、当前步骤、硬约束、任务摘要、开放弧、短卡片 |
+| `plan_step` | 给一个阶段整段写 todolist |
+| `write_lesson` | 先错后改对之后记一条经验，必须带开放的 `arcId` |
 
-还没有独立 React 侧栏组件（ui-slots 要 React 声明合并）。侧栏文案已经能渲染，Web 面板等宿主槽位稳定再挂。
+回路：工具报错开弧 → 摊开短卡片 → 测试或 tsc/CI 转绿提醒一次 `write_lesson` → 弧消费、卡片撤走。没有测试也能写，小票会标「还在隔离区」。
+
+数据落在启动目录的 `.dsh-student-memory/lessons.json`。
 
 ## 开发
 
 ```sh
-cd /Users/juejuezi/dsh-plugin-v1/student-memory
+pnpm install
 pnpm test
+pnpm typecheck
 ```
+
+设计稿和实现顺序在 [docs/v1-plan.md](./docs/v1-plan.md)。
+
+## 许可
+
+MIT

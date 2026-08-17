@@ -4,19 +4,23 @@ import type { AssembledPrompt } from '../src/types.ts'
 
 function assembly(l1: string): AssembledPrompt {
   return {
-    sections: [{ name: 'student-memory:l2', text: 'pinned' }],
+    sections: [{ name: 'student-memory:l0', text: 'control' }],
     contexts: [
       { name: 'approval:policy', text: 'ask' },
       { name: 'student-memory:l1', text: l1 },
+      { name: 'student-memory:l2', text: 'pinned' },
+      { name: 'student-memory:l3', text: 'lessons' },
     ],
   }
 }
 
 describe('applyL1Budget', () => {
-  it('leaves other contexts and L2 sections untouched', () => {
+  it('leaves other contexts and the L0 section untouched', () => {
     const out = applyL1Budget(assembly('short'), 10)
-    expect(out.sections).toEqual([{ name: 'student-memory:l2', text: 'pinned' }])
+    expect(out.sections).toEqual([{ name: 'student-memory:l0', text: 'control' }])
     expect(out.contexts.find((c) => c.name === 'approval:policy')?.text).toBe('ask')
+    expect(out.contexts.find((c) => c.name === 'student-memory:l2')?.text).toBe('pinned')
+    expect(out.contexts.find((c) => c.name === 'student-memory:l3')?.text).toBe('lessons')
   })
 
   it('truncates only the L1 context and appends a note', () => {

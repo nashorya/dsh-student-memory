@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { apply, L1_CONTEXT, L2_SECTION, writeLessonTool } from '../src/index.ts'
+import { apply, L0_SECTION, L1_CONTEXT, writeLessonTool } from '../src/index.ts'
 import { StudentMemoryRuntime } from '../src/runtime.ts'
 
 function fakeCtx() {
@@ -40,16 +40,21 @@ function fakeCtx() {
 }
 
 describe('apply', () => {
-  it('registers L2 section and L1 context providers that read the live store', () => {
+  it('registers only L0 section and one L1 context', () => {
     const { ctx, sections, contexts } = fakeCtx()
     const runtime = apply(ctx, { persist: 'memory' })
     runtime.pinned = { workingMemory: 'Goal: dogfood' }
     runtime.liveQuery = 'spike'
-    expect(sections.map((s) => s.name)).toEqual([L2_SECTION])
+    expect(sections.map((s) => s.name)).toEqual([L0_SECTION])
     expect(contexts.map((c) => c.name)).toEqual([L1_CONTEXT])
-    expect(sections[0]?.text()).toContain('Goal: dogfood')
+    expect(contexts.map((c) => c.order)).toEqual([200])
+    expect(sections[0]?.text()).toContain('cache_prefix_breakpoint')
+    expect(sections[0]?.text()).not.toContain('STUDENT_MEMORY_WATERMARK')
+    expect(sections[0]?.text()).not.toContain('openArcs')
     expect(contexts[0]?.text()).toContain('spike')
-    expect(contexts[0]?.text()).toContain('STUDENT_MEMORY_WATERMARK')
+    expect(contexts[0]?.text()).toContain('### taskSpec')
+    expect(contexts[0]?.text()).toContain('### l2Summary')
+    expect(contexts[0]?.text()).not.toContain('### lessons')
   })
 
   it('truncates L1 in the context provider, not the assemble waterfall', () => {
@@ -58,7 +63,8 @@ describe('apply', () => {
     runtime.liveQuery = 'abcdefghijklmnop'
     const text = contexts[0]?.text() ?? ''
     expect(text).toContain('truncated')
-    expect(text.startsWith('## Live')).toBe(true)
+    expect(text).toContain('### tas')
+    expect(text).not.toContain('abcdefghijklmnop')
   })
 })
 

@@ -1,23 +1,23 @@
-import type { L1Live, L2Pinned } from './types.ts'
+import type { L1Live, L2Pinned, RecalledLesson } from './types.ts'
 
 /**
- * Session-local pin/live state. Replaced by storageDomain in M2.
- * A new plugin load starts empty (disk-derived later).
+ * Session-local pin/near-field/recall. Runtime owns the live copy;
+ * this store is the typed shape for the three dynamic layers.
  */
 export class MemoryStore {
   pinned: L2Pinned = {}
-  live: L1Live['live'] = {}
-  recall: NonNullable<L1Live['recall']> = []
+  nearField: L1Live = {}
+  recall: RecalledLesson[] = []
 
   pin(next: L2Pinned): void {
     this.pinned = { ...next }
   }
 
-  setLive(next: L1Live['live']): void {
-    this.live = { ...next }
+  setNearField(next: L1Live): void {
+    this.nearField = { ...next }
   }
 
-  setRecall(next: NonNullable<L1Live['recall']>): void {
+  setRecall(next: RecalledLesson[]): void {
     this.recall = [...next]
   }
 }

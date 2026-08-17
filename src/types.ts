@@ -4,9 +4,17 @@ export interface Adr {
   status: 'proposed' | 'accepted' | 'superseded'
 }
 
+export interface Stage {
+  id: string
+  adrId: string
+  title: string
+  status: 'pending' | 'doing' | 'done'
+}
+
 export interface TodoItem {
   id: string
   adrId: string
+  stageId: string
   content: string
   status: 'pending' | 'doing' | 'done'
 }
@@ -14,21 +22,25 @@ export interface TodoItem {
 export interface L2Pinned {
   workingMemory?: string
   taskLedger?: string
+  hardConstraints?: string
+  recentErrors?: string[]
+  recentSignals?: string[]
 }
 
 export interface RecalledLesson {
   id: string
   summary: string
-  /** Why this lesson was selected for this turn. */
-  reason?: string
 }
 
 export interface L1Live {
-  live?: Record<string, string>
-  recall?: RecalledLesson[]
+  goal?: string
+  phase?: string
+  currentStep?: string
+  hardConstraints?: string
+  l2Summary?: string
   openArcs?: string[]
   harvest?: string
-  watermark?: string | false
+  lessons?: RecalledLesson[]
 }
 
 export interface AssembledSection {
@@ -43,17 +55,17 @@ export interface AssembledPrompt {
 
 export interface StudentMemoryConfig {
   l1BudgetChars?: number
-  watermark?: string | false
   persist?: 'memory' | 'file'
-  /** JSON file used when persist=file. Rebuilt on boot. */
   storePath?: string
-  /** Static HTML board. Defaults next to storePath. */
   dashboardPath?: string
 }
 
-export const L2_SECTION = 'student-memory:l2'
+export const L0_SECTION = 'student-memory:l0'
 export const L1_CONTEXT = 'student-memory:l1'
-export const L2_ORDER = 50
+export const L0_ORDER = 50
 export const L1_ORDER = 200
-export const DEFAULT_L1_BUDGET = 2000
-export const DEFAULT_WATERMARK = 'STUDENT_MEMORY_WATERMARK'
+export const L1_SAFETY_CHARS = 12000
+export const DEFAULT_L1_BUDGET = L1_SAFETY_CHARS
+
+export const CACHE_PREFIX_BREAKPOINT =
+  '### cache_prefix_breakpoint\n# Static prefix ends; dynamic task context follows.'

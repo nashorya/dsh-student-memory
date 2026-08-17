@@ -1,42 +1,39 @@
 import { renderLesson } from './lesson.ts'
 import type { Lesson } from './lesson.ts'
+import { firstSentence } from './l1.ts'
 import type { RecalledLesson } from './types.ts'
 
-const STOP = new Set(['the', 'a', 'an', 'and', 'or', 'to', 'of', 'in', 'on', 'for', 'with'])
-
-export function tokens(text: string): string[] {
-  return text
-    .toLowerCase()
-    .split(/[^a-z0-9\u4e00-\u9fff]+/)
-    .filter((part) => part.length >= 2 && !STOP.has(part))
+export function cardSummary(lesson: Lesson): string {
+  const cause = firstSentence(lesson.cause)
+  const boundary = lesson.doNotApplyWhen.trim()
+  const lines = [cause]
+  if (boundary) lines.push(`Do not apply when: ${boundary}`)
+  lines.push(`trust: ${lesson.trust}`)
+  return lines.join(' / ')
 }
 
-export function scoreLesson(lesson: Lesson, query: string): number {
-  const body = renderLesson(lesson)
-  if (!body) return 0
-  const q = new Set(tokens(query))
-  if (q.size === 0) return 0
-  const hay = new Set(tokens(`${body} ${lesson.id}`))
-  let hit = 0
-  for (const token of q) {
-    if (hay.has(token)) hit += 1
-  }
-  return hit / q.size
+/** Full library as short cards. Session-new first, then newest createdAt. */
+export function lessonCards(
+  lessons: readonly Lesson[],
+  sessionIds: readonly string[] = [],
+): RecalledLesson[] {
+  const session = new Set(sessionIds)
+  return [...lessons]
+    .filter((lesson) => renderLesson(lesson).length > 0)
+    .sort((a, b) => {
+      const aSession = session.has(a.id) ? 0 : 1
+      const bSession = session.has(b.id) ? 0 : 1
+      if (aSession !== bSession) return aSession - bSession
+      return b.createdAt.localeCompare(a.createdAt)
+    })
+    .map((lesson) => ({ id: lesson.id, summary: cardSummary(lesson) }))
 }
 
+/** @deprecated use lessonCards */
 export function recallLessons(
   lessons: readonly Lesson[],
-  query: string,
-  limit = 10,
+  _query = '',
+  _limit = 10,
 ): RecalledLesson[] {
-  return lessons
-    .map((lesson) => ({ lesson, score: scoreLesson(lesson, query) }))
-    .filter((row) => row.score > 0 && renderLesson(row.lesson).length > 0)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, limit)
-    .map(({ lesson, score }) => ({
-      id: lesson.id,
-      summary: `${renderLesson(lesson)}\n${lesson.watermark}`,
-      reason: `和当前任务「${query.trim()}」有 ${Math.round(score * 100)}% 词重叠，所以塞进本轮 L1。`,
-    }))
+  return lessonCards(lessons)
 }

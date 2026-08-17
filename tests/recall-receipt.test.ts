@@ -1,68 +1,77 @@
 import { describe, expect, it } from 'vitest'
 import { createLesson, renderLesson } from '../src/lesson.ts'
-import { recallLessons } from '../src/recall.ts'
+import { lessonCards } from '../src/recall.ts'
 import { renderReceipt, renderSidebar } from '../src/receipt.ts'
 import { StudentMemoryRuntime } from '../src/runtime.ts'
 import { MemoryPersist } from '../src/persist.ts'
 
-function lesson(cause: string, fix: string, trust: 'tests-green' | 'isolated' = 'isolated') {
-  return createLesson({
-    arcId: 'arc_1',
-    cause,
-    fixPattern: fix,
-    contrast: '',
-    doNotApplyWhen: '',
-  }, trust)
+function lesson(cause: string, fix: string, trust: 'tests-green' | 'isolated' = 'isolated', at = '2026-08-16T00:00:00.000Z') {
+  return {
+    ...createLesson({
+      arcId: 'arc_1',
+      cause,
+      fixPattern: fix,
+      contrast: '',
+      doNotApplyWhen: 'Not this file',
+    }, trust, new Date(at)),
+    createdAt: at,
+  }
 }
 
-describe('recall', () => {
-  it('returns matching non-empty lessons with a watermark token', () => {
-    const rows = [
-      lesson('Hashline rejects stale anchors', 'Re-read before retrying the edit'),
-      lesson('Unrelated network timeout', 'Retry the request'),
-    ]
-    const hit = recallLessons(rows, 'stale hashline edit')
-    expect(hit).toHaveLength(1)
-    expect(hit[0]?.summary).toContain('Hashline')
-    expect(hit[0]?.summary).toContain('⟦sm:')
-    expect(renderLesson(rows[0]!)).not.toBe('')
+describe('lessonCards', () => {
+  it('spreads the full library, session-new first', () => {
+    const older = lesson('Hashline rejects stale anchors', 'Re-read before retrying the edit', 'isolated', '2026-08-01T00:00:00.000Z')
+    const newer = lesson('Unrelated network timeout', 'Retry the request', 'tests-green', '2026-08-16T00:00:00.000Z')
+    const cards = lessonCards([older, newer], [older.id])
+    expect(cards).toHaveLength(2)
+    expect(cards[0]?.id).toBe(older.id)
+    expect(cards[0]?.summary).toContain('Hashline')
+    expect(cards[0]?.summary).toContain('trust: isolated')
+    expect(cards[0]?.summary).toContain('Do not apply when')
+    expect(renderLesson(older)).not.toBe('')
   })
 
   it('does not inject a lesson whose render is empty', () => {
     const blank = { ...lesson('x', 'y'), cause: '', fixPattern: '' }
-    expect(recallLessons([blank], 'x y')).toEqual([])
+    expect(lessonCards([blank])).toEqual([])
   })
 })
 
 describe('receipt + sidebar', () => {
-  it('tells the truth about isolation vs tests-green', () => {
+  it('tells the truth about isolation vs tests-green and used cards', () => {
     const text = renderReceipt([
       lesson('a', 'b', 'tests-green'),
       lesson('c', 'd', 'isolated'),
-    ])
+    ], ['lesson_used'])
     expect(text).toContain('有测试转绿背书')
     expect(text).toContain('还在隔离区')
+    expect(text).toContain('用上了')
+    expect(text).toContain('lesson_used')
   })
 
-  it('empty session is an honest notebook, not a dead QA machine', () => {
-    expect(renderReceipt([])).toContain('能用的笔记本')
-    expect(renderSidebar({ injected: [], learned: [] })).toContain('本轮没有注入')
+  it('empty session does not invent a used lesson', () => {
+    expect(renderReceipt([])).toContain('这次没有记下新的 lesson')
+    expect(renderSidebar({ injected: [], learned: [] })).toContain('本拍没有摊开')
   })
 })
 
-describe('runtime recall into L1', () => {
-  it('puts recalled watermarked text into the L1 body', async () => {
+describe('runtime cards into L1 on open arc', () => {
+  it('spreads cards after a tool error and records used_recall', async () => {
+    const row = lesson('Stale patch anchors fail', 'Read the file immediately before patching', 'tests-green')
     const persist = new MemoryPersist({
-      lessons: [lesson('Stale patch anchors fail', 'Read the file immediately before patching', 'tests-green')],
+      lessons: [row],
       adrs: [],
+      stages: [],
       todos: [],
     })
-    const runtime = new StudentMemoryRuntime(persist, { watermark: false })
+    const runtime = new StudentMemoryRuntime(persist)
     await runtime.boot()
-    runtime.refreshRecall('stale patch anchors')
-    const l1 = runtime.l1Text()
-    expect(l1).toContain('## Recall')
-    expect(l1).toContain('⟦sm:')
-    expect(runtime.sidebar()).toContain('本轮注入')
+    expect(runtime.l1Text()).not.toContain('### lessons')
+    runtime.observeTool({ toolCallId: 'e', toolName: 'bash', isError: true, resultText: 'stale anchor' })
+    expect(runtime.l1Text()).toContain('### lessons')
+    expect(runtime.l1Text()).toContain(row.id)
+    runtime.noteModelText(`I used [[used_recall:${row.id}]]`)
+    expect(runtime.receipt()).toContain(row.id)
+    expect(runtime.receipt()).toContain('用上了')
   })
 })
