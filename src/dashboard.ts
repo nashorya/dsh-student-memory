@@ -19,6 +19,10 @@ export interface DashboardSnapshot {
   usedIds: string[]
   sessionLearned: Lesson[]
   dashboardPath?: string
+  workspaceDir?: string
+  indexMd?: string
+  adrMd?: string
+  buglogMd?: string
 }
 
 const TRUST_LABEL: Record<LessonTrust, string> = {
@@ -77,30 +81,30 @@ export function renderDashboard(snap: DashboardSnapshot): string {
   const spread = snap.recalled.length === 0
     ? '<p class="empty">—</p>'
     : `<ul>${snap.recalled.map((item) => `<li><code>${esc(item.id)}</code> ${esc(item.summary)}</li>`).join('')}</ul>`
-  const pending = snap.openArcs.some((arc) =>
-    arc.signals.includes('tests-green') || arc.signals.includes('tsc-ci'))
   const adrBlock = snap.adrs.length === 0
     ? '<p class="empty">—</p>'
     : snap.adrs.map((adr) => adrCard(adr, snap.stages, snap.todos)).join('\n')
   const learned = snap.sessionLearned.length === 0
     ? '<p class="empty">—</p>'
     : snap.sessionLearned.map(lessonCard).join('\n')
+  const workspace = snap.workspaceDir?.trim() || '—'
 
   return `<!doctype html>
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
   <meta http-equiv="refresh" content="4">
-  <title>舵手打捞</title>
+  <title>看板</title>
   <style>
     :root { color-scheme: dark; --bg:#0b2436; --fg:#e8f4fb; --muted:#9ec4d8; --card:#123d56; --line:#1d5f86; }
     body { margin: 0; font: 14px/1.45 ui-sans-serif, system-ui; background: var(--bg); color: var(--fg); }
     header { padding: 16px 20px; border-bottom: 1px solid var(--line); }
     h1 { font-size: 18px; margin: 0 0 4px; }
-    .meta { color: var(--muted); }
+    .meta { color: var(--muted); word-break: break-all; }
     main { padding: 16px 20px 40px; display: grid; gap: 16px; }
     .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    .pane { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
+    .docs { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+    .pane { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 12px; min-height: 120px; }
     h2 { font-size: 12px; margin: 0 0 8px; color: var(--muted); }
     h3 { font-size: 12px; margin: 8px 0 4px; color: var(--muted); }
     pre { white-space: pre-wrap; word-break: break-word; margin: 0; font: 12px/1.4 ui-monospace, monospace; }
@@ -108,42 +112,51 @@ export function renderDashboard(snap: DashboardSnapshot): string {
     .card header { display: flex; justify-content: space-between; gap: 8px; padding: 0; border: 0; }
     .tag, .empty, small { color: var(--muted); }
     ul { margin: 0; padding-left: 1.1em; }
-    @media (max-width: 900px) { .row { grid-template-columns: 1fr; } }
+    @media (max-width: 1100px) { .docs { grid-template-columns: 1fr; } .row { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
   <header>
-    <h1>舵手打捞</h1>
-    <p class="meta">${esc(snap.updatedAt)} · 海图 ${esc(chartState(snap))}</p>
+    <h1>看板</h1>
+    <p class="meta">${esc(workspace)}</p>
   </header>
   <main>
+    <div class="docs">
+      <section class="pane">
+        <h2>INDEX</h2>
+        <pre>${esc(snap.indexMd || '—')}</pre>
+      </section>
+      <section class="pane">
+        <h2>ADR</h2>
+        <pre>${esc(snap.adrMd || '—')}</pre>
+      </section>
+      <section class="pane">
+        <h2>Buglog</h2>
+        <pre>${esc(snap.buglogMd || '—')}</pre>
+      </section>
+    </div>
     <section class="pane">
-      <h2>舵手 · 本拍工作集</h2>
+      <h2>当前</h2>
       <pre>${esc(snap.now || '—')}</pre>
-      <h3>刚才做了什么</h3>
+      <h3>最近动作</h3>
       ${moves}
-      ${pending ? '<p>先错后改，还没记成 lesson。</p>' : ''}
     </section>
     <div class="row">
       <section class="pane">
-        <h2>潜水 · 任务状态</h2>
+        <h2>任务</h2>
         ${adrBlock}
       </section>
       <section class="pane">
-        <h2>深水 · 过往经验</h2>
-        <h3>这轮摊开的卡片</h3>
+        <h2>经验</h2>
+        <h3>摊开</h3>
         ${spread}
-        <h3>学到了什么</h3>
+        <h3>本轮</h3>
         ${learned}
-        <h3>这轮用上了哪条</h3>
+        <h3>引用</h3>
         ${used}
         ${snap.lessons.map(lessonCard).join('\n') || '<p class="empty">—</p>'}
       </section>
     </div>
-    <section class="pane">
-      <h2>本拍工作集原文</h2>
-      <pre>${esc(snap.workset || '—')}</pre>
-    </section>
   </main>
 </body>
 </html>

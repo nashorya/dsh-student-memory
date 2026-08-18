@@ -41,6 +41,8 @@ export interface L1Live {
   openArcs?: string[]
   harvest?: string
   lessons?: RecalledLesson[]
+  /** True when this user turn still needs propose_adr before implementation. */
+  adrRequired?: boolean
 }
 
 export interface AssembledSection {
@@ -58,6 +60,7 @@ export interface StudentMemoryConfig {
   persist?: 'memory' | 'file'
   storePath?: string
   dashboardPath?: string
+  workspaceDir?: string
 }
 
 export const L0_SECTION = 'student-memory:l0'

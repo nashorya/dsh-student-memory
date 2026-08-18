@@ -1,10 +1,18 @@
-import { join } from 'node:path'
 import { truncateL1 } from './budget.ts'
 import { excludeConflictingPlugins } from './exclude.ts'
 import { dropPriorTurns } from './history.ts'
 import type { HistorySession } from './history.ts'
-import { FilePersist, MemoryPersist } from './persist.ts'
-import { observationFromExec, planStepTool, writeLessonTool } from './tool.ts'
+import { renderL0 } from './l0.ts'
+import { renderL1 } from './l1.ts'
+import {
+  appendBuglogTool,
+  observationFromExec,
+  planStepTool,
+  proposeAdrTool,
+  updateIndexTool,
+  writeLessonTool,
+} from './tool.ts'
+import { MemoryHub } from './hub.ts'
 import { StudentMemoryRuntime } from './runtime.ts'
 import { registerMemoryRoutes } from './web.ts'
 import type { MemoryWebServer } from './web.ts'
@@ -26,7 +34,14 @@ export { renderL0 } from './l0.ts'
 export { renderL1 } from './l1.ts'
 export { renderL2, renderL2Summary } from './l2.ts'
 export { StudentMemoryRuntime, ARC_REMINDER, HARVEST_PROMPT } from './runtime.ts'
-export { planStepTool, writeLessonTool } from './tool.ts'
+export { MemoryHub } from './hub.ts'
+export {
+  planStepTool,
+  writeLessonTool,
+  proposeAdrTool,
+  updateIndexTool,
+  appendBuglogTool,
+} from './tool.ts'
 export { renderReceipt, renderSidebar, usedRecallIds } from './receipt.ts'
 export { renderDashboard } from './dashboard.ts'
 export { verdictOf } from './verdict.ts'
@@ -70,8 +85,13 @@ export interface StudentMemoryContext {
   webServer?: MemoryWebServer
 }
 
-export function defaultMemoryDir(): string {
-  return join(process.cwd(), '.dsh-student-memory')
+function cwdFromSession(session: unknown): string {
+  const header = (session as { header?: { cwd?: unknown } } | null)?.header
+  return typeof header?.cwd === 'string' ? header.cwd.trim() : ''
+}
+
+function isUserMessage(event: unknown): boolean {
+  return !!event && typeof event === 'object' && (event as { type?: unknown }).type === 'user/message'
 }
 
 /** Join text blocks from a session `assistant/message` event; '' when not one. */
@@ -89,36 +109,45 @@ export function assistantTextFromEvent(event: unknown): string {
     .join('')
 }
 
-export function apply(ctx: StudentMemoryContext, config: StudentMemoryConfig | null | undefined = {}): StudentMemoryRuntime {
+export function apply(ctx: StudentMemoryContext, config: StudentMemoryConfig | null | undefined = {}): MemoryHub {
   const options = config ?? {}
-  const persistMode = options.persist ?? 'file'
-  const storePath = options.storePath ?? join(defaultMemoryDir(), 'lessons.json')
-  const dashboardPath = options.dashboardPath
-    ?? (persistMode === 'file' ? join(defaultMemoryDir(), 'dashboard.html') : undefined)
-  const persist = persistMode === 'file' ? new FilePersist(storePath) : new MemoryPersist()
-  const runtime = new StudentMemoryRuntime(persist, { ...options, storePath, dashboardPath })
-  void runtime.boot()
-  if (dashboardPath) console.info(`[student-memory] ${dashboardPath}`)
+  const hub = new MemoryHub(options)
   const excluded = excludeConflictingPlugins(ctx)
   const budget = options.l1BudgetChars ?? L1_SAFETY_CHARS
+
+  const requireRuntime = (): StudentMemoryRuntime => {
+    const runtime = hub.active()
+    if (!runtime) {
+      throw new Error('当前没有工作区。先打开带工作区的会话，再调用工具。')
+    }
+    return runtime
+  }
 
   ctx.systemPrompt.section({
     name: L0_SECTION,
     order: L0_ORDER,
-    text: () => runtime.l0Text(),
+    text: () => hub.active()?.l0Text() ?? renderL0(),
   })
 
   ctx.systemPrompt.context({
     name: L1_CONTEXT,
     order: L1_ORDER,
-    text: () => truncateL1(runtime.l1Text({ consumeHarvest: true }), budget),
+    text: () => truncateL1(
+      hub.active()?.l1Text({ consumeHarvest: true }) ?? renderL1({ adrRequired: true }),
+      budget,
+    ),
   })
 
   ctx.on('tools/result', ((exec: Record<string, unknown>, result: Record<string, unknown>) => {
-    runtime.observeTool(observationFromExec(exec, result))
+    hub.active()?.observeTool(observationFromExec(exec, result))
   }) as never)
 
-  ctx.on('session/event', ((_session: unknown, event: unknown) => {
+  ctx.on('session/event', ((session: unknown, event: unknown) => {
+    const cwd = cwdFromSession(session)
+    if (cwd) hub.use(cwd)
+    const runtime = hub.active()
+    if (!runtime) return
+    if (isUserMessage(event)) runtime.noteUserTurn()
     const text = assistantTextFromEvent(event)
     if (text) runtime.noteModelText(text)
   }) as never)
@@ -126,14 +155,19 @@ export function apply(ctx: StudentMemoryContext, config: StudentMemoryConfig | n
   ctx.on('agent/pre-step', ((event: unknown, next?: unknown) => {
     return excluded.then(() => {
       const session = (event as { agent?: { session?: HistorySession } } | null)?.agent?.session
+      const cwd = cwdFromSession(session)
+      if (cwd) hub.use(cwd)
       if (session) dropPriorTurns(session)
       return typeof next === 'function' ? (next as () => unknown)() : undefined
     })
   }) as never)
 
-  ctx.tools.register(writeLessonTool(runtime))
-  ctx.tools.register(planStepTool(runtime))
-  if (ctx.webServer) registerMemoryRoutes(ctx.webServer, runtime)
+  ctx.tools.register(proposeAdrTool(requireRuntime))
+  ctx.tools.register(updateIndexTool(requireRuntime))
+  ctx.tools.register(appendBuglogTool(requireRuntime))
+  ctx.tools.register(writeLessonTool(requireRuntime))
+  ctx.tools.register(planStepTool(requireRuntime))
+  if (ctx.webServer) registerMemoryRoutes(ctx.webServer, hub)
 
-  return runtime
+  return hub
 }

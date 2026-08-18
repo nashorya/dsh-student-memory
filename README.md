@@ -48,14 +48,17 @@ Git 源码安装时，pnpm ≥10 可能拦住 `prepare`。按提示把 `allowBui
 
 | 块 | 作用 |
 |---|---|
-| L0 | `write_lesson` 合同，静态 system 前缀 |
-| L1 | 唯一进模型的工作集：目标、阶段、当前步骤、硬约束、任务摘要、开放弧、短卡片 |
-| `plan_step` | 给一个阶段整段写 todolist |
+| L0 | 合同：每条规划/要求先 `propose_adr`；持续维护 INDEX / ADR / buglog；`write_lesson` 语义约束 |
+| L1 | 唯一进模型的工作集；无覆盖本请求的 ADR 时注入 `adrRequired` |
+| `propose_adr` | 先记 ADR，再实施 |
+| `update_index` | 重写本工作区 `INDEX.md` |
+| `append_buglog` | 追加本工作区 `buglog.md` |
+| `plan_step` | 给一个阶段整段写 todolist（需已有 ADR） |
 | `write_lesson` | 先错后改对之后记一条经验，必须带开放的 `arcId` |
 
-回路：工具报错开弧 → 摊开短卡片 → 测试或 tsc/CI 转绿提醒一次 `write_lesson` → 弧消费、卡片撤走。没有测试也能写，小票会标「还在隔离区」。
+回路：用户消息 → 先 `propose_adr` → `plan_step` / 实施 → 缺陷进 buglog → INDEX 保持目录最新。经验回路仍是：工具报错开弧 → 摊开短卡片 → 转绿提醒 `write_lesson`。
 
-数据落在启动目录的 `.dsh-student-memory/lessons.json`。
+每个工作区各自落盘：`{workspace}/.dsh-student-memory/`（`INDEX.md`、`ADR.md`、`buglog.md`、`lessons.json`、`dashboard.html`）。看板：`/student-memory?workspace=<绝对路径>`。
 
 ## 开发
 

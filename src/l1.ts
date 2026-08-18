@@ -22,6 +22,9 @@ export function renderL1(input: L1Live = {}): string {
   if (input.phase?.trim()) spec.push(`Phase: ${input.phase.trim()}`)
   if (input.currentStep?.trim()) spec.push(`Current step: ${input.currentStep.trim()}`)
   const parts: string[] = []
+  if (input.adrRequired || !input.goal?.trim()) {
+    parts.push('### adrRequired\n本请求还没有 ADR。先调用 propose_adr，再实施。')
+  }
   if (spec.length > 0) parts.push(`### taskSpec\n${spec.join('\n')}`)
 
   const hard = input.hardConstraints?.trim()

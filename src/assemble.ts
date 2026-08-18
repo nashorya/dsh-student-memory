@@ -13,6 +13,7 @@ export interface AssembleInput {
   harvest?: string
   openArcs?: string[]
   recentErrors?: string[]
+  adrRequired?: boolean
 }
 
 export interface AssembledLayers {
@@ -31,7 +32,7 @@ export function deriveL1(input: AssembleInput): L1Live {
     : stages.find((item) => item.status === 'doing')
   const query = input.liveQuery?.trim()
   return {
-    goal: adr?.title.trim() || (!doing ? query : undefined),
+    goal: adr?.title.trim(),
     phase: stage?.title.trim(),
     currentStep: doing?.content.trim() || (adr && query ? query : undefined),
     hardConstraints: input.pinned?.hardConstraints,
@@ -42,6 +43,7 @@ export function deriveL1(input: AssembleInput): L1Live {
     openArcs: input.openArcs,
     harvest: input.harvest,
     lessons: input.recall,
+    adrRequired: input.adrRequired,
   }
 }
 

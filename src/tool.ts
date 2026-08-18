@@ -17,10 +17,10 @@ export function asDraft(args: Record<string, unknown> | null | undefined): Lesso
   }
 }
 
-export function planStepTool(runtime: StudentMemoryRuntime) {
+export function planStepTool(getRuntime: () => StudentMemoryRuntime) {
   return {
     name: 'plan_step',
-    description: 'Write the todolist for one stage. Replaces that stage\'s todos.',
+    description: 'Write the todolist for one stage. Replaces that stage\'s todos. Requires an existing ADR stage from propose_adr.',
     parameters: {
       type: 'object',
       properties: {
@@ -57,12 +57,12 @@ export function planStepTool(runtime: StudentMemoryRuntime) {
             : undefined
         return [{ content, ...(status ? { status } : {}) }]
       })
-      return runtime.planStep(stageId, todos)
+      return getRuntime().planStep(stageId, todos)
     },
   }
 }
 
-export function writeLessonTool(runtime: StudentMemoryRuntime) {
+export function writeLessonTool(getRuntime: () => StudentMemoryRuntime) {
   return {
     name: 'write_lesson',
     description: WRITE_LESSON_DESCRIPTION,
@@ -82,9 +82,87 @@ export function writeLessonTool(runtime: StudentMemoryRuntime) {
       render: (_args: unknown, value: unknown) => [{ type: 'text', text: String(value) }],
     },
     async execute(args: Record<string, unknown> | null | undefined) {
-      const result = runtime.recordLesson(asDraft(args))
+      const result = getRuntime().recordLesson(asDraft(args))
       if (!result.ok) throw new Error(result.text)
       return result.text
+    },
+  }
+}
+
+export function proposeAdrTool(getRuntime: () => StudentMemoryRuntime) {
+  return {
+    name: 'propose_adr',
+    description: 'Propose the ADR for the current request or plan. Call this before any implementation.',
+    parameters: {
+      type: 'object',
+      properties: {
+        title: { type: 'string', description: 'One-line decision or goal.' },
+        context: { type: 'string', description: 'What was asked or planned, and why an ADR is needed now.' },
+        decision: { type: 'string', description: 'Chosen approach. Omit if still deciding.' },
+      },
+      required: ['title', 'context'],
+    },
+    output: {
+      schema: { type: 'string' },
+      render: (_args: unknown, value: unknown) => [{ type: 'text', text: String(value) }],
+    },
+    async execute(args: Record<string, unknown> | null | undefined) {
+      const rec = args && typeof args === 'object' ? args : {}
+      return getRuntime().proposeAdr({
+        title: String(rec.title ?? ''),
+        context: String(rec.context ?? ''),
+        decision: typeof rec.decision === 'string' ? rec.decision : undefined,
+      })
+    },
+  }
+}
+
+export function updateIndexTool(getRuntime: () => StudentMemoryRuntime) {
+  return {
+    name: 'update_index',
+    description: 'Replace INDEX.md for this workspace. Keep the ADR list, bug list, and current status accurate.',
+    parameters: {
+      type: 'object',
+      properties: {
+        content: { type: 'string', description: 'Full markdown for INDEX.md.' },
+      },
+      required: ['content'],
+    },
+    output: {
+      schema: { type: 'string' },
+      render: (_args: unknown, value: unknown) => [{ type: 'text', text: String(value) }],
+    },
+    async execute(args: Record<string, unknown> | null | undefined) {
+      const rec = args && typeof args === 'object' ? args : {}
+      return getRuntime().updateIndex(String(rec.content ?? ''))
+    },
+  }
+}
+
+export function appendBuglogTool(getRuntime: () => StudentMemoryRuntime) {
+  return {
+    name: 'append_buglog',
+    description: 'Append a defect or regression to this workspace buglog.md.',
+    parameters: {
+      type: 'object',
+      properties: {
+        title: { type: 'string', description: 'Short defect title.' },
+        detail: { type: 'string', description: 'Repro, cause, and current status.' },
+        status: { type: 'string', description: 'open | investigating | fixed' },
+      },
+      required: ['title', 'detail'],
+    },
+    output: {
+      schema: { type: 'string' },
+      render: (_args: unknown, value: unknown) => [{ type: 'text', text: String(value) }],
+    },
+    async execute(args: Record<string, unknown> | null | undefined) {
+      const rec = args && typeof args === 'object' ? args : {}
+      return getRuntime().appendBuglog({
+        title: String(rec.title ?? ''),
+        detail: String(rec.detail ?? ''),
+        status: typeof rec.status === 'string' ? rec.status : 'open',
+      })
     },
   }
 }

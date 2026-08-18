@@ -103,6 +103,10 @@ window.__ModuleLoader__.load({
 .sm-rail .box.on{background:#3a8bb8}
 .sm-rail .todos{margin:2px 0 0 19px;padding:0;list-style:none;color:#5b6b75}
 .sm-rail .empty{color:#9aa8b0;margin:0}
+.sm-rail .doc{max-height:160px;overflow:auto;margin:0;font:11px/1.4 ui-monospace,monospace;white-space:pre-wrap;word-break:break-word}
+.sm-rail .docs{display:flex;flex-direction:column;gap:8px}
+.sm-rail .dash{display:inline-block;margin:0 0 6px;color:#3a8bb8;font-size:11px;text-decoration:none}
+.sm-rail .dash:hover{text-decoration:underline}
 .sm-rail-icon{display:flex;justify-content:center;padding-top:8px}
 .sm-rail-icon button{background:none;border:0;cursor:pointer;font-size:16px}
 `
@@ -121,15 +125,29 @@ window.__ModuleLoader__.load({
         : h('p', { className: 'muted' }, '—')
     }
 
-    function useMemoryState() {
+    function sessionCwd(props, sessionId) {
+      return props.useSessions((s) => {
+        const id = sessionId || s.current
+        const row = s.byId && id ? s.byId[id] : null
+        return (row && row.cwd) || ''
+      })
+    }
+
+    function useMemoryState(workspace) {
       const [snap, setSnap] = useState(null)
       useEffect(() => {
         injectCss()
         let stop = false
         const tick = async () => {
+          if (!workspace) {
+            if (!stop) setSnap(null)
+            return
+          }
           try {
-            const res = await fetch('/student-memory/state', { cache: 'no-store' })
+            const q = `?workspace=${encodeURIComponent(workspace)}`
+            const res = await fetch(`/student-memory/state${q}`, { cache: 'no-store' })
             if (res.ok && !stop) setSnap(await res.json())
+            else if (!stop) setSnap(null)
           } catch {
             if (!stop) setSnap(null)
           }
@@ -137,7 +155,7 @@ window.__ModuleLoader__.load({
         tick()
         const id = setInterval(tick, 2000)
         return () => { stop = true; clearInterval(id) }
-      }, [])
+      }, [workspace])
       return snap
     }
 
@@ -231,13 +249,14 @@ window.__ModuleLoader__.load({
     // Shadows sidebar.workspaces. Session switching stays as a compact fold
     // so the official workspace browser is not required.
     function AdrRail(props) {
-      const snap = useMemoryState()
+      const workspace = sessionCwd(props)
+      const snap = useMemoryState(workspace)
       const [openDone, setOpenDone] = useState({})
       if (!props.wide) {
         return h('div', { className: 'sm-rail-icon' },
           h('button', {
             type: 'button',
-            title: '打开航线',
+            title: '看板',
             onClick: () => { if (props.expandSidebar) props.expandSidebar() },
           }, '☰'))
       }
@@ -254,13 +273,28 @@ window.__ModuleLoader__.load({
         expanded: !!openDone[adr.id],
         onToggle: () => setOpenDone((prev) => ({ ...prev, [adr.id]: !prev[adr.id] })),
       }))
+      const dashHref = workspace
+        ? `/student-memory?workspace=${encodeURIComponent(workspace)}`
+        : '/student-memory'
       return h('div', { className: 'sm-rail' },
         h('details', { className: 'fold' },
           h('summary', null, '会话'),
           h(SessionSwitch, props)),
+        h('a', { className: 'dash', href: dashHref, target: '_blank', rel: 'noreferrer' }, '看板'),
+        h('div', { className: 'docs' },
+          h('article', { className: 'card' },
+            h('p', { className: 'role' }, 'INDEX'),
+            h('pre', { className: 'doc' }, (snap && snap.indexMd) || '—')),
+          h('article', { className: 'card' },
+            h('p', { className: 'role' }, 'ADR'),
+            h('pre', { className: 'doc' }, (snap && snap.adrMd) || '—')),
+          h('article', { className: 'card' },
+            h('p', { className: 'role' }, 'Buglog'),
+            h('pre', { className: 'doc' }, (snap && snap.buglogMd) || '—')),
+        ),
         grouped.done.length || grouped.current.length || grouped.next.length
           ? null
-          : h('p', { className: 'empty' }, '还没有任务图。模型用 plan_step 写下阶段待办后会出现。'),
+          : h('p', { className: 'empty' }, '—'),
         cards('done', grouped.done),
         cards('current', grouped.current),
         cards('next', grouped.next),
@@ -364,10 +398,11 @@ window.__ModuleLoader__.load({
     }
 
     function HelmColumn(props) {
-      const snap = useMemoryState()
+      const sessionId = props.sessionId
+      const workspace = sessionCwd(props, sessionId)
+      const snap = useMemoryState(workspace)
       const [selected, setSelected] = useState(null)
       const conversation = props.useSession((s) => s)
-      const sessionId = props.sessionId
       const usage = props.useProjection ? props.useProjection('tokenUsage') : undefined
       const catalog = props.useSessions((list) => {
         const rows = list.subagentsByParent || {}
@@ -386,7 +421,6 @@ window.__ModuleLoader__.load({
       const recalled = (snap && snap.recalled) || []
       const usedIds = (snap && snap.usedIds) || []
       const learned = (snap && snap.sessionLearned) || []
-      const pending = openArcs.length > 0
       const used = new Set(usedIds)
       const haul = learned.length ? 'write' : recalled.length ? 'l3' : (snap && snap.now) ? 'l2' : ''
       const blocks = rootToolBlocks(conversation)
@@ -411,9 +445,13 @@ window.__ModuleLoader__.load({
           }, '✕'),
         ),
         h('section', { className: 'pane' },
+          h('h2', null, '工作区'),
+          h('pre', null, workspace || '—'),
+        ),
+        h('section', { className: 'pane' },
           h('h2', null, 'agent'),
           children.length === 0
-            ? h('p', { className: 'muted' }, '还没有子 agent')
+            ? h('p', { className: 'muted' }, '—')
             : children.map((entry) => h('button', {
               key: entry.id,
               type: 'button',
@@ -428,29 +466,35 @@ window.__ModuleLoader__.load({
             },
             entry.label || (summaries[entry.id] && summaries[entry.id].displayTitle) || entry.id,
             h('div', { className: 'st' },
-              entry.activity === 'running' ? '工作中，点击可查看详情' : '完成，点击可查看详情'))),
+              entry.activity === 'running' ? '工作中' : '完成'))),
         ),
         h(SeaScene, { haul }),
         h('section', { className: 'pane' },
-          h('h2', null, 'token · 消耗情况'),
+          h('h2', null, 'token'),
           usage
             ? h('div', { className: 'tok' },
               h('div', null, h('span', null, '输入 '), formatTokens(input)),
               h('div', null, h('span', null, '输出 '), formatTokens(usage.outputTokens || 0)),
               h('div', null, h('span', null, '缓存命中 '), cacheHit === null ? '—' : `${cacheHit}%`))
-            : h('p', { className: 'muted' }, '还没有用量'),
+            : h('p', { className: 'muted' }, '—'),
         ),
         h('section', { className: 'pane' },
-          h('h2', null, '现在在干什么'),
+          h('h2', null, '当前'),
           h('pre', null, (snap && snap.now) || '—'),
-          pending ? h('p', null, '有一次先错后改，还没记下来。') : null,
         ),
         h('section', { className: 'pane' },
-          h('h2', null, '这轮摊开的旧经验'),
+          h('h2', null, 'INDEX'),
+          h('pre', null, (snap && snap.indexMd) || '—'),
+          h('h2', { style: { marginTop: '8px' } }, 'ADR'),
+          h('pre', null, (snap && snap.adrMd) || '—'),
+          h('h2', { style: { marginTop: '8px' } }, 'Buglog'),
+          h('pre', null, (snap && snap.buglogMd) || '—'),
+        ),
+        h('section', { className: 'pane' },
+          h('h2', null, '经验'),
           listOrDash(recalled, (item) => h('li', { key: item.id },
             h('code', null, item.id), ` ${item.summary}`,
             used.has(item.id) ? h('span', { className: 'badge used' }, '用上了') : null)),
-          h('h2', { style: { marginTop: '8px' } }, '学到了什么（本次）'),
           listOrDash(learned, (item) => h('li', { key: item.id },
             item.cause,
             h('span', { className: 'badge' }, item.trust))),
