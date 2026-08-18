@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { openTurnOf, selectPriorTurnRange } from './surface-policy.ts'
 import type { LogEvent } from './surface-policy.ts'
 
-export const PRIOR_TURN_STUB = '[student-memory: prior turns dropped]'
+export const PRIOR_TURN_STUB = '[student-memory: completed task archived to L2]'
 
 export interface HistorySession {
   events: readonly LogEvent[]

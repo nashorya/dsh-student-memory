@@ -157,7 +157,11 @@ export function apply(ctx: StudentMemoryContext, config: StudentMemoryConfig | n
       const session = (event as { agent?: { session?: HistorySession } } | null)?.agent?.session
       const cwd = cwdFromSession(session)
       if (cwd) hub.use(cwd)
-      if (session) dropPriorTurns(session)
+      const runtime = hub.active()
+      if (session && runtime?.shouldArchiveHistory()) {
+        runtime.archiveToL2()
+        dropPriorTurns(session)
+      }
       return typeof next === 'function' ? (next as () => unknown)() : undefined
     })
   }) as never)

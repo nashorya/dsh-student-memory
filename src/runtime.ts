@@ -10,6 +10,7 @@ import { renderReceipt, renderSidebar, usedRecallIds } from './receipt.ts'
 import { writeLesson } from './write-lesson.ts'
 import { assembleLayers } from './assemble.ts'
 import type { AssembledLayers } from './assemble.ts'
+import { renderL2Summary } from './l2.ts'
 import type { Adr, L2Pinned, RecalledLesson, Stage, StudentMemoryConfig, TodoItem } from './types.ts'
 import {
   formatAdrEntry,
@@ -50,6 +51,7 @@ export class StudentMemoryRuntime {
   private docs: WorkspaceDocs = { index: '', adr: '', buglog: '' }
   private lastUserAt = 0
   private coveredUntil = 0
+  private archivedKey = ''
 
   constructor(
     private readonly persist: BoardPersist = new MemoryPersist(),
@@ -69,6 +71,8 @@ export class StudentMemoryRuntime {
     this.adrSeq = nextSeq(this.adrs.map((item) => item.id), 'adr_')
     this.stageSeq = nextSeq(this.stages.map((item) => item.id), 'stage_')
     this.todoSeq = nextSeq(this.todos.map((item) => item.id), 'todo_')
+    this.pinned = { ...board.pinned }
+    this.archivedKey = board.archivedKey ?? ''
     if (this.config.workspaceDir) {
       this.docs = await loadWorkspaceDocs(this.config.workspaceDir)
     }
@@ -157,8 +161,9 @@ export class StudentMemoryRuntime {
     }))
     this.todos = [...this.todos.filter((todo) => todo.stageId !== stageId), ...next]
     const doing = next.some((todo) => todo.status === 'doing')
+    const allDone = next.length > 0 && next.every((todo) => todo.status === 'done')
     this.stages = this.stages.map((item) => item.id === stageId
-      ? { ...item, status: doing ? 'doing' : item.status }
+      ? { ...item, status: doing ? 'doing' : allDone ? 'done' : item.status }
       : item)
     void this.persistBoard()
     return `Planned ${next.length} todos for ${stageId}.`
@@ -280,6 +285,52 @@ export class StudentMemoryRuntime {
     return this.adrs.length === 0 || this.lastUserAt > this.coveredUntil
   }
 
+  /** True only when live ADR work is finished and not yet archived to L2. */
+  shouldArchiveHistory(): boolean {
+    if (!this.isTaskComplete()) return false
+    return this.taskArchiveKey() !== this.archivedKey
+  }
+
+  isTaskComplete(): boolean {
+    const live = this.adrs.filter((item) => item.status !== 'superseded')
+    if (live.length === 0) return false
+    const ids = new Set(live.map((item) => item.id))
+    const stages = this.stages.filter((item) => ids.has(item.adrId))
+    const todos = this.todos.filter((item) => ids.has(item.adrId))
+    const openTodos = todos.filter((item) => item.status !== 'done')
+    const openStages = stages.filter((item) => item.status !== 'done')
+    if (todos.length > 0) return openTodos.length === 0
+    return stages.length > 0 && openStages.length === 0
+  }
+
+  archiveToL2(): string {
+    const live = this.adrs.filter((item) => item.status !== 'superseded')
+    const ledger = live.map((adr) => {
+      const stages = this.stages.filter((item) => item.adrId === adr.id)
+      const todos = this.todos.filter((item) => item.adrId === adr.id)
+      const stageLines = stages.map((stage) => `  - ${stage.title} [${stage.status}]`)
+      const todoLines = todos.map((todo) => `  - [${todo.status}] ${todo.content}`)
+      return [`${adr.id} ${adr.title} [${adr.status}]`, ...stageLines, ...todoLines].join('\n')
+    }).join('\n')
+    this.pinned = {
+      ...this.pinned,
+      workingMemory: this.snapshot().now || live.map((item) => item.title).join('\n'),
+      taskLedger: ledger,
+    }
+    this.archivedKey = this.taskArchiveKey()
+    this.moves.push('archive_l2')
+    void this.persistBoard()
+    return renderL2Summary(this.pinned, { stages: this.stages, todos: this.todos })
+  }
+
+  private taskArchiveKey(): string {
+    return this.adrs
+      .filter((item) => item.status !== 'superseded')
+      .map((item) => item.id)
+      .sort()
+      .join(',')
+  }
+
   refreshCards(): RecalledLesson[] {
     this.lastRecall = this.openArcs().length === 0
       ? []
@@ -332,6 +383,8 @@ export class StudentMemoryRuntime {
       adrs: this.adrs,
       stages: this.stages,
       todos: this.todos,
+      pinned: this.pinned,
+      archivedKey: this.archivedKey,
     })
     await this.flushDashboard()
   }

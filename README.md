@@ -32,7 +32,7 @@ dsh plugin --profile web add /path/to/dsh-student-memory
 
 Git 源码安装时，pnpm ≥10 可能拦住 `prepare`。按提示把 `allowBuilds` 写进 `~/.dsh/profiles/web/pnpm-workspace.yaml`，再跑一次 `add`。
 
-装上后会关掉 `compaction-basic` 和 `command-compact`，避免旧轮次被卷进摘要。
+装上后会关掉 `compaction-basic` 和 `command-compact`。对话历史在任务进行中（含暂停/继续）全部保留；只有当前 ADR 的待办都完成后，才把摘要写入 L2 并丢掉已完成任务的旧轮次。
 
 ## 界面
 

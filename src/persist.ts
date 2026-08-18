@@ -1,13 +1,15 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import type { Lesson } from './lesson.ts'
-import type { Adr, Stage, TodoItem } from './types.ts'
+import type { Adr, L2Pinned, Stage, TodoItem } from './types.ts'
 
 export interface BoardState {
   lessons: Lesson[]
   adrs: Adr[]
   stages: Stage[]
   todos: TodoItem[]
+  pinned?: L2Pinned
+  archivedKey?: string
 }
 
 export interface BoardPersist {
@@ -15,7 +17,7 @@ export interface BoardPersist {
   save(state: BoardState): Promise<void>
 }
 
-const empty = (): BoardState => ({ lessons: [], adrs: [], stages: [], todos: [] })
+const empty = (): BoardState => ({ lessons: [], adrs: [], stages: [], todos: [], pinned: {}, archivedKey: '' })
 
 function withStageId(todos: TodoItem[]): TodoItem[] {
   return todos.map((todo) => ({
@@ -33,6 +35,8 @@ export class MemoryPersist implements BoardPersist {
       adrs: [...this.state.adrs],
       stages: [...this.state.stages],
       todos: withStageId(this.state.todos),
+      pinned: { ...this.state.pinned },
+      archivedKey: this.state.archivedKey ?? '',
     }
   }
 
@@ -42,6 +46,8 @@ export class MemoryPersist implements BoardPersist {
       adrs: [...state.adrs],
       stages: [...state.stages],
       todos: withStageId(state.todos),
+      pinned: { ...state.pinned },
+      archivedKey: state.archivedKey ?? '',
     }
   }
 }
@@ -59,6 +65,8 @@ export class FilePersist implements BoardPersist {
         adrs: Array.isArray(parsed.adrs) ? parsed.adrs : [],
         stages: Array.isArray(parsed.stages) ? parsed.stages : [],
         todos: withStageId(Array.isArray(parsed.todos) ? parsed.todos : []),
+        pinned: parsed.pinned && typeof parsed.pinned === 'object' ? parsed.pinned : {},
+        archivedKey: typeof parsed.archivedKey === 'string' ? parsed.archivedKey : '',
       }
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code === 'ENOENT') return empty()
